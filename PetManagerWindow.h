@@ -8,20 +8,22 @@ public:
 
 private:
     static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-    /*static void OnBrowse(HWND hDlg);
-    static void OnStart(HWND hDlg);
-    static void OnStop(HWND hDlg);*/
 
     void CreateControls(HWND hWnd);
-    void OnBrowse(HWND hWnd);
+    void OnBrowseImage(HWND hWnd);
+    void OnBrowseFolder(HWND hWnd);
     void OnStart(HWND hWnd);
     void OnStop(HWND hWnd);
 
+    HINSTANCE hInst = nullptr;
     HWND hwndMain = nullptr;
-    HWND hwndEdit = nullptr;
+
+    // UI Controls
+    HWND hwndCheckAnimation = nullptr;
+    HWND hwndEditImage = nullptr;
+    HWND hwndBtnBrowseImage = nullptr;
+    HWND hwndEditFolder = nullptr;
+    HWND hwndBtnBrowseFolder = nullptr;
     HWND hwndBtnStart = nullptr;
     HWND hwndBtnStop = nullptr;
-    HWND hwndBtnBrowse = nullptr;
-
-    HINSTANCE hInst = nullptr;
 };

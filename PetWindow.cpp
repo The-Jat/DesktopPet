@@ -1,46 +1,118 @@
 #include "PetWindow.h"
 #include <string>
 #include <vector>
+#include <gdiplus.h>
+
+using namespace Gdiplus;
+// Animation timing in milliseconds
+static const int FRAME_INTERVAL_MS = 100; // 100ms per frame (10 FPS)
 
 
-static Image* petImage = nullptr;
-static int petX = 100, petY = 100;
-static HWND hwndGlobal = nullptr;
-
-static std::vector<Gdiplus::Image*> walkFrames;
+static std::vector<Image*> walkFrames;
 static int currentFrame = 0;
-static int petWidth = 128;
-static int petHeight = 128;
+static int petX = 100, petY = 100;
+static int petWidth = 128, petHeight = 128;
+static bool isStatic = false;
 static UINT_PTR animationTimerId = 1;
-static const int FRAME_INTERVAL_MS = 100; // milliseconds
+static HWND hwndGlobal = nullptr;
 
 LRESULT CALLBACK PetWndProc(HWND, UINT, WPARAM, LPARAM);
 
-HWND CreatePetWindow(const wchar_t* imagePath, int width, int height) {
-    //petImage = new Image(imagePath);
+// Utility: create and show the window
+static HWND CreatePetWindowInternal(int width, int height) {
+    const wchar_t* CLASS_NAME = L"PetWindowClass";
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = PetWndProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = CLASS_NAME;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = NULL;
 
-    // Clear previous frames if any
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindowEx(
+        WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
+        CLASS_NAME, L"Pet",
+        WS_POPUP,
+        petX, petY, width, height,
+        NULL, NULL, wc.hInstance, NULL
+    );
+
+    ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    UpdateWindow(hwnd);
+    hwndGlobal = hwnd;
+    return hwnd;
+}
+
+// Static image version
+HWND CreateStaticPetWindow(const wchar_t* imagePath, int width, int height) {
+    if (hwndGlobal) {
+        DestroyWindow(hwndGlobal);   // Cleanly destroy the previous pet window
+        hwndGlobal = nullptr;
+    }
+
     for (auto* img : walkFrames) delete img;
     walkFrames.clear();
 
-    // Load walk1.png to walk6.png
-    for (int i = 1; i <= 6; ++i) {
-        std::wstring framePath = L"D:\\Personal\\DesktopPet\\assets\\walk" + std::to_wstring(i) + L".png";
-        Gdiplus::Image* frame = new Gdiplus::Image(framePath.c_str());
-        if (frame->GetLastStatus() == Ok) {
-            walkFrames.push_back(frame);
-        }
-        else {
-            MessageBox(NULL, (L"Failed to load frame: " + framePath).c_str(), L"Error", MB_OK);
-            delete frame;
-        }
+    Image* img = new Image(imagePath);
+    if (img->GetLastStatus() != Ok) {
+        MessageBox(NULL, L"Failed to load static image.", L"Error", MB_OK);
+        delete img;
+        return nullptr;
     }
 
+    walkFrames.push_back(img);
+    currentFrame = 0;
+    isStatic = true;
 
-    //if (!petImage || petImage->GetLastStatus() != Ok) return nullptr;
+    return CreatePetWindowInternal(width, height);
+}
+
+// Animation version
+HWND CreatePetWindow(int width, int height, const std::wstring& path, bool isAnimation) {
+    if (hwndGlobal) {
+        DestroyWindow(hwndGlobal);   // Cleanly destroy the previous pet window
+        hwndGlobal = nullptr;
+    }
+    
+    for (auto* img : walkFrames) delete img;
+    walkFrames.clear();
+
+	currentFrame = 0;
+
+    if (isAnimation) {
+        for (int i = 1; i <= 6; ++i) {
+            std::wstring framePath = path + L"\\walk" + std::to_wstring(i) + L".png";
+            Gdiplus::Image* frame = new Gdiplus::Image(framePath.c_str());
+            if (frame->GetLastStatus() == Gdiplus::Ok) {
+                walkFrames.push_back(frame);
+            }
+            else {
+                MessageBox(NULL, (L"Failed to load: " + framePath).c_str(), L"Load Error", MB_OK);
+                delete frame;
+            }
+        }
+
+        if (walkFrames.empty()) {
+            MessageBox(NULL, L"No valid animation frames loaded.", L"Error", MB_OK);
+            return nullptr;
+        }
+
+        isStatic = false;
+    }
+    else {
+        Gdiplus::Image* img = new Gdiplus::Image(path.c_str());
+        if (img->GetLastStatus() != Gdiplus::Ok) {
+            MessageBox(NULL, L"Failed to load static image.", L"Error", MB_OK);
+            delete img;
+            return nullptr;
+        }
+        walkFrames.push_back(img);
+        isStatic = true;
+    }
 
     const wchar_t* CLASS_NAME = L"PetWindowClass";
-    WNDCLASS wc = { };
+    WNDCLASS wc = {};
     wc.lpfnWndProc = PetWndProc;
     wc.hInstance = GetModuleHandle(NULL);
     wc.lpszClassName = CLASS_NAME;
@@ -61,24 +133,17 @@ HWND CreatePetWindow(const wchar_t* imagePath, int width, int height) {
     return hwnd;
 }
 
+
 void DrawPet(HWND hwnd) {
-    /*if (!petImage) return;
-
-    UINT width = petImage->GetWidth();
-    UINT height = petImage->GetHeight();*/
-
     if (walkFrames.empty()) return;
-
-    UINT width = petWidth;
-    UINT height = petHeight;
 
     HDC hdcScreen = GetDC(NULL);
     HDC hdcMem = CreateCompatibleDC(hdcScreen);
 
     BITMAPINFO bmi = { 0 };
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = -((LONG)height);
+    bmi.bmiHeader.biWidth = petWidth;
+    bmi.bmiHeader.biHeight = -petHeight;
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
@@ -90,12 +155,10 @@ void DrawPet(HWND hwnd) {
     Graphics graphics(hdcMem);
     graphics.SetCompositingMode(CompositingModeSourceOver);
     graphics.Clear(Color(0, 0, 0, 0));
-    //graphics.DrawImage(petImage, 0, 0, 128, 128);
     graphics.DrawImage(walkFrames[currentFrame], 0, 0, petWidth, petHeight);
 
-
     POINT ptSrc = { 0, 0 };
-    SIZE sizeWindow = { (LONG)width, (LONG)height };
+    SIZE sizeWindow = { petWidth, petHeight };
     POINT ptDst = { petX, petY };
 
     BLENDFUNCTION blend = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
@@ -112,11 +175,14 @@ LRESULT CALLBACK PetWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     switch (msg) {
     case WM_CREATE:
-        SetTimer(hwnd, animationTimerId, FRAME_INTERVAL_MS, NULL);
+        if (!isStatic) {
+            SetTimer(hwnd, animationTimerId, FRAME_INTERVAL_MS, NULL);
+        }
         DrawPet(hwnd);
         return 0;
+
     case WM_TIMER:
-        if (!walkFrames.empty()) {
+        if (!walkFrames.empty() && !isStatic) {
             currentFrame = (currentFrame + 1) % walkFrames.size();
             DrawPet(hwnd);
         }
@@ -134,6 +200,7 @@ LRESULT CALLBACK PetWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             offset.y = pt.y - rc.top;
         }
         return 0;
+
     case WM_MOUSEMOVE:
         if (dragging) {
             POINT pt;
@@ -143,22 +210,18 @@ LRESULT CALLBACK PetWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             DrawPet(hwnd);
         }
         return 0;
+
     case WM_LBUTTONUP:
         ReleaseCapture();
         dragging = false;
         return 0;
+
     case WM_DESTROY:
-        delete petImage;
-        petImage = nullptr;
-
         KillTimer(hwnd, animationTimerId);
-
-        for (auto* img : walkFrames) {
-            delete img;
-        }
+        for (auto* img : walkFrames) delete img;
         walkFrames.clear();
-
         return 0;
     }
+
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

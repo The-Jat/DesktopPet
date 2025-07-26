@@ -4,11 +4,18 @@
 #include <commdlg.h>
 #include <string>
 #include "resource.h"
+#include <shlobj.h>        // For BROWSEINFO and SHBrowseForFolder
+#include <shlwapi.h>       // Optional: for PathCombine, etc.
+#pragma comment(lib, "shell32.lib") // Required for SHBrowseForFolder and SHGetPathFromIDList
+
+
 using std::wstring;
 
 
 static HWND petHwnd = nullptr;
+
 static std::wstring selectedImagePath = L"";
+static std::wstring selectedFolderPath = L"";
 
 #define WINDOW_CLASS_NAME L"DesktopPetManagerClass"
 
@@ -66,9 +73,25 @@ LRESULT CALLBACK PetManagerWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, L
         pThis->CreateControls(hWnd);
         break;
 
-    case WM_COMMAND:
+    /*case WM_COMMAND:
         switch (LOWORD(wParam)) {
         case 1: pThis->OnBrowse(hWnd); break;
+        case 2: pThis->OnStart(hWnd); break;
+        case 3: pThis->OnStop(hWnd); break;
+        }
+        break;*/
+    case WM_COMMAND:
+        if (LOWORD(wParam) == 4) {
+            BOOL checked = SendMessage(pThis->hwndCheckAnimation, BM_GETCHECK, 0, 0);
+            EnableWindow(pThis->hwndEditImage, !checked);
+            EnableWindow(pThis->hwndBtnBrowseImage, !checked);
+            EnableWindow(pThis->hwndEditFolder, checked);
+            EnableWindow(pThis->hwndBtnBrowseFolder, checked);
+        }
+
+        switch (LOWORD(wParam)) {
+        case 1: pThis->OnBrowseImage(hWnd); break;
+        case 5: pThis->OnBrowseFolder(hWnd); break;
         case 2: pThis->OnStart(hWnd); break;
         case 3: pThis->OnStop(hWnd); break;
         }
@@ -84,28 +107,52 @@ LRESULT CALLBACK PetManagerWindow::WndProc(HWND hWnd, UINT msg, WPARAM wParam, L
 }
 
 void PetManagerWindow::CreateControls(HWND hWnd) {
-    hwndEdit = CreateWindowW(L"EDIT", L"",
+    // Checkbox: Use Animation
+    hwndCheckAnimation = CreateWindowW(L"BUTTON", L"Use Animation",
+        WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+        10, 10, 150, 20,
+        hWnd, (HMENU)4, hInst, NULL);
+
+    // Static Image Controls
+    hwndEditImage = CreateWindowW(L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-        10, 20, 260, 25,
+        10, 40, 260, 25,
         hWnd, (HMENU)10, hInst, NULL);
 
-    hwndBtnBrowse = CreateWindowW(L"BUTTON", L"Browse...",
+    hwndBtnBrowseImage = CreateWindowW(L"BUTTON", L"Browse Image...",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        280, 20, 90, 25,
+        280, 40, 90, 25,
         hWnd, (HMENU)1, hInst, NULL);
 
+    // Animation Folder Controls
+    hwndEditFolder = CreateWindowW(L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+        10, 75, 260, 25,
+        hWnd, (HMENU)11, hInst, NULL);
+
+    hwndBtnBrowseFolder = CreateWindowW(L"BUTTON", L"Browse Folder...",
+        WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        280, 75, 90, 25,
+        hWnd, (HMENU)5, hInst, NULL);
+
+    // Start/Stop buttons
     hwndBtnStart = CreateWindowW(L"BUTTON", L"Start Pet",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        60, 60, 100, 30,
+        60, 115, 100, 30,
         hWnd, (HMENU)2, hInst, NULL);
 
     hwndBtnStop = CreateWindowW(L"BUTTON", L"Stop Pet",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        180, 60, 100, 30,
+        180, 115, 100, 30,
         hWnd, (HMENU)3, hInst, NULL);
+
+    // Initially disable animation folder UI
+    EnableWindow(hwndEditFolder, FALSE);
+    EnableWindow(hwndBtnBrowseFolder, FALSE);
 }
 
-void PetManagerWindow::OnBrowse(HWND hWnd) {
+
+void PetManagerWindow::OnBrowseImage(HWND hWnd) {
     WCHAR filePath[MAX_PATH] = {};
     OPENFILENAME ofn = { sizeof(ofn) };
     ofn.hwndOwner = hWnd;
@@ -115,18 +162,48 @@ void PetManagerWindow::OnBrowse(HWND hWnd) {
     ofn.Flags = OFN_FILEMUSTEXIST;
 
     if (GetOpenFileName(&ofn)) {
-        SetWindowText(hwndEdit, filePath);
+        SetWindowText(hwndEditImage, filePath);
         selectedImagePath = filePath;
     }
 }
 
+void PetManagerWindow::OnBrowseFolder(HWND hWnd) {
+    BROWSEINFO bi = { 0 };
+    bi.lpszTitle = L"Select Folder with Animation Frames";
+    LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+
+    if (pidl != 0) {
+        WCHAR folderPath[MAX_PATH];
+        SHGetPathFromIDList(pidl, folderPath);
+        SetWindowText(hwndEditFolder, folderPath);
+        selectedFolderPath = folderPath;
+        CoTaskMemFree(pidl);
+    }
+}
+
+
 void PetManagerWindow::OnStart(HWND hWnd) {
-   /*if (selectedImagePath.empty()) {
-        MessageBox(hWnd, L"Please select a pet image first.", L"Error", MB_OK);
-        return;
-    }*/
-    if (!petHwnd) {
-        petHwnd = CreatePetWindow(selectedImagePath.c_str(), 128, 128);
+    BOOL animationMode = SendMessage(hwndCheckAnimation, BM_GETCHECK, 0, 0);
+
+    // Always stop existing pet first
+    if (petHwnd) {
+        DestroyWindow(petHwnd);
+        petHwnd = nullptr;
+    }
+
+    if (animationMode) {
+        if (selectedFolderPath.empty()) {
+            MessageBox(hWnd, L"Select animation folder first.", L"Error", MB_OK);
+            return;
+        }
+        petHwnd = CreatePetWindow(128, 128, selectedFolderPath, true);
+    }
+    else {
+        if (selectedImagePath.empty()) {
+            MessageBox(hWnd, L"Select a static image first.", L"Error", MB_OK);
+            return;
+        }
+        petHwnd = CreatePetWindow(128, 128, selectedImagePath, false);
     }
 }
 
