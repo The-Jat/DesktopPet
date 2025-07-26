@@ -32,7 +32,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
-int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
+int APIENTRY wWinMain1(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
                      _In_ int       nCmdShow)
@@ -78,7 +78,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 
-void DrawPet(HWND hWnd)
+void DrawPet1(HWND hWnd)
 {
     if (!petImage)
         return;
@@ -202,7 +202,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        MessageBox(NULL, L"Failed to load image", L"Error", MB_OK);
    }
    else {
-       DrawPet(hWnd);  // Only draw after image is ready
+       DrawPet1(hWnd);  // Only draw after image is ready
    }
 
 
@@ -250,7 +250,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             petX = pt.x - dragOffset.x;
             petY = pt.y - dragOffset.y;
 
-            DrawPet(hWnd);  // Redraw at new position
+            DrawPet1(hWnd);  // Redraw at new position
         }
         return 0;
     }

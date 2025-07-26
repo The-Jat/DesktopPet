@@ -4,6 +4,13 @@
 
 #define IDS_APP_TITLE			103
 
+#define IDD_PET_MANAGER   101
+#define IDC_BTN_BROWSE    1001
+#define IDC_BTN_START     1002
+#define IDC_BTN_STOP      1003
+#define IDC_EDIT_PATH     1004
+
+
 #define IDR_MAINFRAME			128
 #define IDD_DESKTOPPET_DIALOG	102
 #define IDD_ABOUTBOX			103

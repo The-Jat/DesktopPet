@@ -127,11 +127,16 @@
   <ItemGroup>
     <ClInclude Include="DesktopPet.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="PetManagerWindow.h" />
+    <ClInclude Include="PetWindow.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DesktopPet.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="PerManagerWindow.cpp" />
+    <ClCompile Include="PetWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DesktopPet.rc" />

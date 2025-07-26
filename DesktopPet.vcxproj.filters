@@ -27,9 +27,24 @@
     <ClInclude Include="DesktopPet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PetManagerWindow.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PetWindow.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DesktopPet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PerManagerWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PetWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
