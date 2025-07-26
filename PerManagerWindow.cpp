@@ -121,10 +121,10 @@ void PetManagerWindow::OnBrowse(HWND hWnd) {
 }
 
 void PetManagerWindow::OnStart(HWND hWnd) {
-   if (selectedImagePath.empty()) {
+   /*if (selectedImagePath.empty()) {
         MessageBox(hWnd, L"Please select a pet image first.", L"Error", MB_OK);
         return;
-    }
+    }*/
     if (!petHwnd) {
         petHwnd = CreatePetWindow(selectedImagePath.c_str(), 128, 128);
     }

@@ -1,43 +1,43 @@
 #include "PetWindow.h"
-//#include <string>
-//#include <vector>
+#include <string>
+#include <vector>
 
 
 static Image* petImage = nullptr;
 static int petX = 100, petY = 100;
 static HWND hwndGlobal = nullptr;
 
-//static std::vector<Gdiplus::Image*> walkFrames;
-//static int currentFrame = 0;
-//static int petWidth = 128;
-//static int petHeight = 128;
-//static UINT_PTR animationTimerId = 1;
-//static const int FRAME_INTERVAL_MS = 100; // milliseconds
+static std::vector<Gdiplus::Image*> walkFrames;
+static int currentFrame = 0;
+static int petWidth = 128;
+static int petHeight = 128;
+static UINT_PTR animationTimerId = 1;
+static const int FRAME_INTERVAL_MS = 100; // milliseconds
 
 LRESULT CALLBACK PetWndProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND CreatePetWindow(const wchar_t* imagePath, int width, int height) {
-    petImage = new Image(imagePath);
+    //petImage = new Image(imagePath);
 
     // Clear previous frames if any
-    //for (auto* img : walkFrames) delete img;
-    //walkFrames.clear();
+    for (auto* img : walkFrames) delete img;
+    walkFrames.clear();
 
-    //// Load walk1.png to walk6.png
-    //for (int i = 1; i <= 6; ++i) {
-    //    std::wstring framePath = L"D:\\Personal\\DesktopPet\\assets\\walk" + std::to_wstring(i) + L".png";
-    //    Gdiplus::Image* frame = new Gdiplus::Image(framePath.c_str());
-    //    if (frame->GetLastStatus() == Ok) {
-    //        walkFrames.push_back(frame);
-    //    }
-    //    else {
-    //        MessageBox(NULL, (L"Failed to load frame: " + framePath).c_str(), L"Error", MB_OK);
-    //        delete frame;
-    //    }
-    //}
+    // Load walk1.png to walk6.png
+    for (int i = 1; i <= 6; ++i) {
+        std::wstring framePath = L"D:\\Personal\\DesktopPet\\assets\\walk" + std::to_wstring(i) + L".png";
+        Gdiplus::Image* frame = new Gdiplus::Image(framePath.c_str());
+        if (frame->GetLastStatus() == Ok) {
+            walkFrames.push_back(frame);
+        }
+        else {
+            MessageBox(NULL, (L"Failed to load frame: " + framePath).c_str(), L"Error", MB_OK);
+            delete frame;
+        }
+    }
 
 
-    if (!petImage || petImage->GetLastStatus() != Ok) return nullptr;
+    //if (!petImage || petImage->GetLastStatus() != Ok) return nullptr;
 
     const wchar_t* CLASS_NAME = L"PetWindowClass";
     WNDCLASS wc = { };
@@ -62,15 +62,15 @@ HWND CreatePetWindow(const wchar_t* imagePath, int width, int height) {
 }
 
 void DrawPet(HWND hwnd) {
-    if (!petImage) return;
+    /*if (!petImage) return;
 
     UINT width = petImage->GetWidth();
-    UINT height = petImage->GetHeight();
+    UINT height = petImage->GetHeight();*/
 
-    //if (walkFrames.empty()) return;
+    if (walkFrames.empty()) return;
 
-    /*UINT width = petWidth;
-    UINT height = petHeight;*/
+    UINT width = petWidth;
+    UINT height = petHeight;
 
     HDC hdcScreen = GetDC(NULL);
     HDC hdcMem = CreateCompatibleDC(hdcScreen);
@@ -90,8 +90,8 @@ void DrawPet(HWND hwnd) {
     Graphics graphics(hdcMem);
     graphics.SetCompositingMode(CompositingModeSourceOver);
     graphics.Clear(Color(0, 0, 0, 0));
-    graphics.DrawImage(petImage, 0, 0, 128, 128);
-    //graphics.DrawImage(walkFrames[currentFrame], 0, 0, petWidth, petHeight);
+    //graphics.DrawImage(petImage, 0, 0, 128, 128);
+    graphics.DrawImage(walkFrames[currentFrame], 0, 0, petWidth, petHeight);
 
 
     POINT ptSrc = { 0, 0 };
@@ -112,15 +112,15 @@ LRESULT CALLBACK PetWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     switch (msg) {
     case WM_CREATE:
-        // SetTimer(hwnd, animationTimerId, FRAME_INTERVAL_MS, NULL);
+        SetTimer(hwnd, animationTimerId, FRAME_INTERVAL_MS, NULL);
         DrawPet(hwnd);
         return 0;
-    /*case WM_TIMER:
+    case WM_TIMER:
         if (!walkFrames.empty()) {
             currentFrame = (currentFrame + 1) % walkFrames.size();
             DrawPet(hwnd);
         }
-        return 0;*/
+        return 0;
 
     case WM_LBUTTONDOWN:
         SetCapture(hwnd);
@@ -151,12 +151,12 @@ LRESULT CALLBACK PetWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         delete petImage;
         petImage = nullptr;
 
-        /*KillTimer(hwnd, animationTimerId);
+        KillTimer(hwnd, animationTimerId);
 
         for (auto* img : walkFrames) {
             delete img;
         }
-        walkFrames.clear();*/
+        walkFrames.clear();
 
         return 0;
     }
