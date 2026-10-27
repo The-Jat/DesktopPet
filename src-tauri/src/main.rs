@@ -204,9 +204,6 @@ fn apply(app: &AppHandle, win: &WebviewWindow, out: TickOutput, applied: &mut Op
         if prev.map(|p| (p.x, p.y)) != Some((plan.x, plan.y)) {
             let _ = win.set_position(PhysicalPosition::new(plan.x, plan.y));
         }
-        if prev.map(|p| p.ignore_cursor) != Some(plan.ignore_cursor) {
-            let _ = win.set_ignore_cursor_events(plan.ignore_cursor);
-        }
         // Show only once placed, so the pet never flashes at the screen corner.
         if prev.is_none() {
             let _ = win.show();

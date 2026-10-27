@@ -40,9 +40,9 @@ pub struct PetInit {
 
 #[tauri::command]
 pub fn pet_init(state: State<'_, Shared>) -> CmdResult<PetInit> {
-    let mut s = lock(&state);
-    // The window may have missed earlier events while loading.
-    s.invalidate_view();
+    let s = lock(&state);
+    // Hand over the current frame and bubble: the window may have missed
+    // their events while it was loading.
     Ok(PetInit { pack: s.loaded_pack()?, frame: s.last_frame.clone(), bubble: s.bubble_view() })
 }
 

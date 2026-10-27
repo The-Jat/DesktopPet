@@ -34,7 +34,9 @@ pub struct Env {
 pub struct FrameView {
     pub anim: Anim,
     pub facing: Facing,
-    /// Sprite placement inside the pet window, CSS pixels.
+    /// Pet window size and sprite placement inside it, CSS pixels.
+    pub window_width: f64,
+    pub window_height: f64,
     pub sprite_left: f64,
     pub sprite_width: f64,
     pub sprite_height: f64,
@@ -68,7 +70,6 @@ pub struct WindowPlan {
     pub y: i32,
     pub width: u32,
     pub height: u32,
-    pub ignore_cursor: bool,
 }
 
 #[derive(Default)]
@@ -294,10 +295,14 @@ impl AppState {
             }
         }
 
-        // Window geometry: sprite at the bottom, bubble room above it.
+        // Window geometry: exactly the sprite, plus room above it only while a
+        // bubble is showing. Keeping the window tight means no invisible area
+        // blocks clicks to the apps behind. (Click-through via
+        // `set_ignore_cursor_events` is not an option: on Windows it makes the
+        // window WS_EX_LAYERED, and the WebView2 content then never draws.)
         let sf = env.scale_factor;
-        let (bw, bh) = ((BUBBLE_W * sf).round(), (BUBBLE_H * sf).round());
-        let win_w = sw.max(bw);
+        let (win_w, bh) =
+            if self.bubble.is_some() { (sw.max((BUBBLE_W * sf).round()), (BUBBLE_H * sf).round()) } else { (sw, 0.0) };
         let win_h = sh + bh;
         let mut win_x = self.pet.x + sw / 2.0 - win_w / 2.0;
         if !self.pet.is_dragged() {
@@ -305,20 +310,8 @@ impl AppState {
         }
         let win_y = self.pet.y - bh;
 
-        let sprite = Rect { left: self.pet.x, top: self.pet.y, right: self.pet.x + sw, bottom: self.pet.y + sh };
-        let bubble_area = Rect { left: win_x, top: win_y, right: win_x + win_w, bottom: self.pet.y };
-        let over_pet =
-            |(x, y): (f64, f64)| sprite.contains(x, y) || (self.bubble.is_some() && bubble_area.contains(x, y));
-        // Without a cursor position we cannot hit-test, so keep the window clickable.
-        let ignore_cursor = self.pointer.is_none() && env.cursor.is_some_and(|c| !over_pet(c));
-
-        let plan = WindowPlan {
-            x: win_x.round() as i32,
-            y: win_y.round() as i32,
-            width: win_w as u32,
-            height: win_h as u32,
-            ignore_cursor,
-        };
+        let plan =
+            WindowPlan { x: win_x.round() as i32, y: win_y.round() as i32, width: win_w as u32, height: win_h as u32 };
         if self.last_window != Some(plan) {
             self.last_window = Some(plan);
             out.window = Some(plan);
@@ -327,6 +320,8 @@ impl AppState {
         let frame = FrameView {
             anim: self.pet.anim(),
             facing: self.pet.facing,
+            window_width: win_w / sf,
+            window_height: win_h / sf,
             sprite_left: ((self.pet.x - win_x) / sf).round(),
             sprite_width: sw / sf,
             sprite_height: sh / sf,
@@ -496,12 +491,11 @@ mod tests {
     }
 
     #[test]
-    fn window_sits_on_taskbar_and_click_through_outside_pet() {
+    fn window_hugs_the_sprite_and_grows_for_bubbles() {
         let mut s = state();
-        let mut e = env(at(12, 0));
-        e.cursor = Some((5.0, 5.0));
+        let e = env(at(12, 0));
         let mut plan = None;
-        // The pet drops in from the top of the screen first.
+        // The pet drops in from the top of the screen first, greeting as it goes.
         for _ in 0..100 {
             if let Some(p) = s.tick(0.03, &e).window {
                 plan = Some(p);
@@ -509,12 +503,19 @@ mod tests {
         }
         let plan = plan.unwrap();
         assert_eq!(plan.y + plan.height as i32, 1040);
-        assert!(plan.ignore_cursor);
+        assert_eq!((plan.width, plan.height), (240, 128 + 130));
 
-        // Hovering the sprite makes the window clickable again.
-        e.cursor = Some((s.pet.x + 10.0, s.pet.y + 10.0));
-        let plan = s.tick(0.03, &e).window.unwrap();
-        assert!(!plan.ignore_cursor);
+        // Once the greeting expires, the window shrinks to the sprite.
+        let mut plan = None;
+        for _ in 0..400 {
+            if let Some(p) = s.tick(0.03, &e).window {
+                plan = Some(p);
+            }
+        }
+        let plan = plan.unwrap();
+        assert!(s.bubble_view().is_none());
+        assert_eq!((plan.width, plan.height), (128, 128));
+        assert_eq!(plan.y + plan.height as i32, 1040);
     }
 
     #[test]

@@ -10,6 +10,15 @@ body {
   font: 13px/1.35 "Segoe UI", system-ui, sans-serif;
 }
 
+/* Sized by Rust to the window's size and pinned to the top-left corner, so the
+   layout stays right even if the page does not resize along with the window. */
+#stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
 #sprite {
   position: absolute;
   bottom: 0;

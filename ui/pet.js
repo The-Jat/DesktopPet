@@ -4,6 +4,7 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+const stage = document.getElementById("stage");
 const sprite = document.getElementById("sprite");
 const bubble = document.getElementById("bubble");
 const bubbleTitle = document.getElementById("bubble-title");
@@ -38,6 +39,8 @@ function step() {
 function applyFrame(f) {
   if (!f) return;
   frame = f;
+  stage.style.width = `${f.windowWidth}px`;
+  stage.style.height = `${f.windowHeight}px`;
   sprite.style.left = `${f.spriteLeft}px`;
   sprite.style.width = `${f.spriteWidth}px`;
   sprite.style.height = `${f.spriteHeight}px`;
@@ -57,7 +60,7 @@ function placeBubble() {
   if (!frame || bubble.hidden) return;
   const width = bubble.offsetWidth;
   const center = frame.spriteLeft + frame.spriteWidth / 2;
-  const left = Math.max(4, Math.min(center - width / 2, window.innerWidth - width - 4));
+  const left = Math.max(4, Math.min(center - width / 2, frame.windowWidth - width - 4));
   bubble.style.left = `${left}px`;
   bubble.style.bottom = `${frame.spriteHeight + 4}px`;
 }
@@ -102,6 +105,10 @@ document.getElementById("snooze").addEventListener("click", () => {
   if (reminderId != null) invoke("reminder_snooze", { id: reminderId, minutes: null });
 });
 
+// Surface script errors in the bubble rather than leaving a blank window.
+window.addEventListener("error", (e) => showBubble({ kind: "say", text: `Error: ${e.message}` }));
+window.addEventListener("unhandledrejection", (e) => showBubble({ kind: "say", text: `Error: ${e.reason}` }));
+
 listen("pet://frame", (e) => applyFrame(e.payload));
 listen("pet://bubble", (e) => showBubble(e.payload));
 listen("pet://pack", (e) => setPack(e.payload));
@@ -112,7 +119,4 @@ invoke("pet_init")
     applyFrame(init.frame);
     showBubble(init.bubble);
   })
-  .catch((err) => {
-    bubbleText.textContent = String(err);
-    bubble.hidden = false;
-  });
+  .catch((err) => showBubble({ kind: "say", text: `Error: ${err}` }));

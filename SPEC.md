@@ -17,8 +17,10 @@ taskbar, has moods, and reminds you of things through a speech bubble.
 ## Windows
 
 1. **Pet window**: transparent, frameless, always on top, not in the taskbar.
-   Sized to the sprite plus room for the speech bubble above it. Transparent
-   parts let clicks through to the apps behind.
+   Exactly the size of the sprite; it grows upward only while a speech bubble
+   is showing, so it never blocks clicks on more of the screen than needed.
+   (OS-level click-through is not used: on Windows it makes the window
+   `WS_EX_LAYERED`, and the webview then draws nothing.)
 2. **Dashboard**: a normal window. Closing it only hides it.
 3. **Tray icon**: Open dashboard / Show-hide pet / Quit. Left-click opens the dashboard.
 
@@ -104,8 +106,7 @@ same id. Format: [`pets/README.md`](pets/README.md).
 
 These were type-checked for Windows but not yet run on a Windows machine:
 
-- Click-through relies on toggling `set_ignore_cursor_events` from a 30 Hz
-  cursor poll; a fast click right at the sprite edge could miss.
+- The transparent corners of the sprite's rectangle still catch clicks.
 - Drag/hit-testing assume the process is per-monitor DPI aware so that
   `GetCursorPos` and window positions are both physical pixels. I believe
   Tauri sets this, but it has not been confirmed on a mixed-DPI setup.
