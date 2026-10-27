@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>DesktopPet Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <nav>
+      <h1>DesktopPet</h1>
+      <button class="tab active" data-tab="reminders" type="button">Reminders</button>
+      <button class="tab" data-tab="notes" type="button">Notes</button>
+      <button class="tab" data-tab="pet" type="button">Pet</button>
+      <button class="tab" data-tab="behaviour" type="button">Behaviour</button>
+      <button class="tab" data-tab="about" type="button">About</button>
+    </nav>
+
+    <main>
+      <div id="error" class="error" hidden></div>
+
+      <!-- Reminders -->
+      <section id="tab-reminders">
+        <h2>Reminders</h2>
+        <form id="reminder-form" class="card">
+          <h3 id="reminder-form-title">New reminder</h3>
+          <label>What should I remind you about?
+            <input name="title" required maxlength="200" placeholder="Call mom" />
+          </label>
+          <label>Details (optional)
+            <textarea name="details" rows="2" maxlength="1000"></textarea>
+          </label>
+          <div class="row">
+            <label>Date <input name="date" type="date" required /></label>
+            <label>Time <input name="time" type="time" required /></label>
+            <div class="presets">
+              <button type="button" data-preset="10m">+10 min</button>
+              <button type="button" data-preset="1h">+1 hour</button>
+              <button type="button" data-preset="tomorrow">Tomorrow 9:00</button>
+            </div>
+          </div>
+          <div class="row">
+            <label>Repeat
+              <select name="repeat">
+                <option value="once">Once</option>
+                <option value="daily">Every day</option>
+                <option value="weekdays">Weekdays (Mon–Fri)</option>
+                <option value="weekly">On chosen days</option>
+                <option value="everyMinutes">Every N minutes</option>
+              </select>
+            </label>
+            <fieldset id="weekly-days" class="days" hidden>
+              <label><input type="checkbox" value="0" />Mon</label>
+              <label><input type="checkbox" value="1" />Tue</label>
+              <label><input type="checkbox" value="2" />Wed</label>
+              <label><input type="checkbox" value="3" />Thu</label>
+              <label><input type="checkbox" value="4" />Fri</label>
+              <label><input type="checkbox" value="5" />Sat</label>
+              <label><input type="checkbox" value="6" />Sun</label>
+            </fieldset>
+            <label id="every-minutes" hidden>Minutes
+              <input name="minutes" type="number" min="1" max="1440" value="60" />
+            </label>
+          </div>
+          <label class="check"><input name="enabled" type="checkbox" checked /> Enabled</label>
+          <div class="actions">
+            <button type="submit" class="primary" id="reminder-submit">Add reminder</button>
+            <button type="button" id="reminder-cancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <ul id="reminder-list" class="list"></ul>
+      </section>
+
+      <!-- Notes -->
+      <section id="tab-notes" hidden>
+        <h2>Notes</h2>
+        <p class="hint">Things without a time. Your pet brings them up now and then while chatter is on.</p>
+        <form id="note-form" class="card row">
+          <input name="text" required maxlength="500" placeholder="Buy bamboo" class="grow" />
+          <button type="submit" class="primary">Add note</button>
+        </form>
+        <ul id="note-list" class="list"></ul>
+      </section>
+
+      <!-- Pet -->
+      <section id="tab-pet" hidden>
+        <h2>Pet</h2>
+        <div class="card">
+          <h3>Choose a pet</h3>
+          <div id="pack-grid" class="pack-grid"></div>
+          <div id="pack-errors" class="error" hidden></div>
+          <p class="hint">
+            Add your own pet by putting a folder with a <code>manifest.json</code> in
+            <code id="user-pets-dir"></code>, then press <button type="button" id="reload-packs">Reload pets</button>.
+            See <code>pets/README.md</code> for the format.
+          </p>
+        </div>
+        <form id="pet-form" class="card settings">
+          <label>Name <input name="petName" maxlength="32" /></label>
+          <label>Size <input name="scale" type="range" min="0.5" max="3" step="0.1" /><output data-for="scale"></output></label>
+          <label>Walking speed <input name="walkSpeed" type="range" min="0" max="200" step="5" /><output data-for="walkSpeed"></output></label>
+        </form>
+        <div class="card">
+          <h3>How is it feeling?</h3>
+          <div id="mood" class="mood"></div>
+          <form id="say-form" class="row">
+            <input name="text" maxlength="200" placeholder="Make your pet say something" class="grow" />
+            <button type="submit">Say it</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- Behaviour -->
+      <section id="tab-behaviour" hidden>
+        <h2>Behaviour</h2>
+        <form id="behaviour-form" class="card settings">
+          <label class="check"><input name="emotionsEnabled" type="checkbox" /> Emotions (happy, bored, sad, sleepy)</label>
+          <label class="check"><input name="chatterEnabled" type="checkbox" /> Talks on its own (notes and little comments)</label>
+          <label>Talk about every (minutes) <input name="chatterIntervalMinutes" type="number" min="1" max="1440" /></label>
+          <label>Speech bubble stays for (seconds) <input name="bubbleSeconds" type="number" min="2" max="120" /></label>
+          <label>Snooze length (minutes) <input name="snoozeMinutes" type="number" min="1" max="1440" /></label>
+          <label>Nap after I'm away for (minutes) <input name="idleSleepMinutes" type="number" min="1" max="1440" /></label>
+          <label class="check"><input name="quietHoursEnabled" type="checkbox" /> Quiet hours (no chatter; reminders still show)</label>
+          <div class="row">
+            <label>From <input name="quietStartHour" type="number" min="0" max="23" /></label>
+            <label>To <input name="quietEndHour" type="number" min="0" max="23" /></label>
+          </div>
+        </form>
+      </section>
+
+      <!-- About -->
+      <section id="tab-about" hidden>
+        <h2>About</h2>
+        <div class="card">
+          <p>Left-click the pet to pet it, drag it to move it, right-click it to open this dashboard.</p>
+          <p>Closing this window only hides it. Use the tray icon to show or hide the pet, or to quit.</p>
+          <p>Your data is saved in <code id="data-path"></code>.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>

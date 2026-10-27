@@ -1,0 +1,13 @@
+{
+  "id": "blue-cat",
+  "name": "Blue Cat",
+  "author": "From the original C++ DesktopPet assets",
+  "license": "",
+  "width": 140,
+  "height": 112,
+  "facing": "right",
+  "animations": {
+    "idle": { "fps": 1, "frames": ["walk1.png"] },
+    "walk": { "fps": 10, "frames": ["walk1.png", "walk2.png", "walk3.png", "walk4.png", "walk5.png", "walk6.png"] }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Event and window basics for the pet and dashboard windows.",
+  "windows": ["pet", "dashboard"],
+  "permissions": ["core:default"]
+}

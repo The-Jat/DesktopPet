@@ -1,0 +1,6 @@
+/target
+/node_modules
+*.tmp
+.DS_Store
+Thumbs.db
+/src-tauri/gen/
