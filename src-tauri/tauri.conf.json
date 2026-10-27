@@ -11,6 +11,7 @@
     "windows": [
       {
         "label": "pet",
+        "create": false,
         "url": "pet.html",
         "title": "DesktopPet",
         "width": 240,
@@ -25,6 +26,7 @@
       },
       {
         "label": "dashboard",
+        "create": false,
         "url": "dashboard.html",
         "title": "DesktopPet Dashboard",
         "width": 980,

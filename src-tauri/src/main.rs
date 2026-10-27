@@ -13,7 +13,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 
 pub type Shared = Mutex<AppState>;
 
@@ -56,6 +58,11 @@ fn main() {
             roots.push(user_pets);
 
             app.manage::<Shared>(Mutex::new(AppState::new(data, data_path, roots)));
+            // Windows are created only now, after the state above exists:
+            // their pages call commands that need it as soon as they load.
+            for config in &app.config().app.windows {
+                WebviewWindowBuilder::from_config(handle, config)?.build()?;
+            }
             build_tray(handle)?;
             spawn_engine(handle.clone());
 

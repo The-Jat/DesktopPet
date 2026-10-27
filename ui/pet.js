@@ -114,15 +114,22 @@ listen("pet://frame", (e) => applyFrame(e.payload));
 listen("pet://bubble", (e) => showBubble(e.payload));
 listen("pet://pack", (e) => setPack(e.payload));
 
-invoke("pet_init")
-  .then((init) => {
-    if (init.debug) {
-      // Tint the page so it is obvious whether the webview draws at all.
-      document.body.style.background = "rgba(255, 0, 0, 0.35)";
-      report(`loaded; page ${innerWidth}x${innerHeight} @${devicePixelRatio}x, frame ${JSON.stringify(init.frame)}`);
-    }
-    setPack(init.pack);
-    applyFrame(init.frame);
-    showBubble(init.bubble);
-  })
-  .catch((err) => report(`pet_init failed: ${err}`));
+// Retry briefly in case the page loads before the app finished starting.
+async function init(attempt = 0) {
+  let data;
+  try {
+    data = await invoke("pet_init");
+  } catch (err) {
+    if (attempt < 20) return setTimeout(() => init(attempt + 1), 250);
+    return report(`pet_init failed: ${err}`);
+  }
+  if (data.debug) {
+    // Tint the page so it is obvious whether the webview draws at all.
+    document.body.style.background = "rgba(255, 0, 0, 0.35)";
+    report(`loaded; page ${innerWidth}x${innerHeight} @${devicePixelRatio}x, frame ${JSON.stringify(data.frame)}`);
+  }
+  setPack(data.pack);
+  applyFrame(data.frame);
+  showBubble(data.bubble);
+}
+init();
