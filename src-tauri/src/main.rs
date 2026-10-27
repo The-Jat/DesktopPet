@@ -17,6 +17,21 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Webview
 
 pub type Shared = Mutex<AppState>;
 
+/// `DESKTOPPET_DEBUG=1` prints what the app is doing to the terminal and
+/// opens the pet window's developer tools.
+pub fn debug_enabled() -> bool {
+    std::env::var_os("DESKTOPPET_DEBUG").is_some()
+}
+
+#[macro_export]
+macro_rules! debug_log {
+    ($($arg:tt)*) => {
+        if $crate::debug_enabled() {
+            eprintln!("[debug] {}", format_args!($($arg)*));
+        }
+    };
+}
+
 const FRAME: Duration = Duration::from_millis(33);
 
 fn main() {
@@ -43,6 +58,14 @@ fn main() {
             app.manage::<Shared>(Mutex::new(AppState::new(data, data_path, roots)));
             build_tray(handle)?;
             spawn_engine(handle.clone());
+
+            debug_log!("data: {}", data_dir.display());
+            #[cfg(debug_assertions)]
+            if debug_enabled() {
+                if let Some(pet) = handle.get_webview_window("pet") {
+                    pet.open_devtools();
+                }
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -72,6 +95,7 @@ fn main() {
             commands::save_settings,
             commands::reload_packs,
             commands::pet_say,
+            commands::log_from_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DesktopPet");
@@ -204,15 +228,17 @@ fn apply(app: &AppHandle, win: &WebviewWindow, out: TickOutput, applied: &mut Op
         if prev.map(|p| (p.x, p.y)) != Some((plan.x, plan.y)) {
             let _ = win.set_position(PhysicalPosition::new(plan.x, plan.y));
         }
-        // Show only once placed, so the pet never flashes at the screen corner.
         if prev.is_none() {
-            let _ = win.show();
+            debug_log!("first window placement: {plan:?}");
+        } else if prev.map(|p| (p.width, p.height)) != Some((plan.width, plan.height)) {
+            debug_log!("window resized: {plan:?}");
         }
     }
     if out.show_pet {
         let _ = win.show();
     }
     if let Some(frame) = out.frame {
+        debug_log!("frame: {:?} facing {:?}", frame.anim, frame.facing);
         let _ = app.emit_to("pet", "pet://frame", frame);
     }
     if let Some(bubble) = out.bubble {

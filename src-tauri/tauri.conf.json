@@ -21,8 +21,7 @@
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false,
-        "focus": false,
-        "visible": false
+        "focus": false
       },
       {
         "label": "dashboard",

@@ -105,9 +105,10 @@ document.getElementById("snooze").addEventListener("click", () => {
   if (reminderId != null) invoke("reminder_snooze", { id: reminderId, minutes: null });
 });
 
-// Surface script errors in the bubble rather than leaving a blank window.
-window.addEventListener("error", (e) => showBubble({ kind: "say", text: `Error: ${e.message}` }));
-window.addEventListener("unhandledrejection", (e) => showBubble({ kind: "say", text: `Error: ${e.reason}` }));
+// Report script errors to the terminal; the window may be too small to show them.
+const report = (msg) => invoke("log_from_page", { msg: String(msg) }).catch(() => {});
+window.addEventListener("error", (e) => report(`error: ${e.message} (${e.filename}:${e.lineno})`));
+window.addEventListener("unhandledrejection", (e) => report(`error: ${e.reason}`));
 
 listen("pet://frame", (e) => applyFrame(e.payload));
 listen("pet://bubble", (e) => showBubble(e.payload));
@@ -115,8 +116,13 @@ listen("pet://pack", (e) => setPack(e.payload));
 
 invoke("pet_init")
   .then((init) => {
+    if (init.debug) {
+      // Tint the page so it is obvious whether the webview draws at all.
+      document.body.style.background = "rgba(255, 0, 0, 0.35)";
+      report(`loaded; page ${innerWidth}x${innerHeight} @${devicePixelRatio}x, frame ${JSON.stringify(init.frame)}`);
+    }
     setPack(init.pack);
     applyFrame(init.frame);
     showBubble(init.bubble);
   })
-  .catch((err) => showBubble({ kind: "say", text: `Error: ${err}` }));
+  .catch((err) => report(`pet_init failed: ${err}`));

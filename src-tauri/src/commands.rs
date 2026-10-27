@@ -33,6 +33,7 @@ fn data_changed(app: &AppHandle) {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PetInit {
+    debug: bool,
     pack: LoadedPack,
     frame: Option<FrameView>,
     bubble: Option<BubbleView>,
@@ -41,9 +42,25 @@ pub struct PetInit {
 #[tauri::command]
 pub fn pet_init(state: State<'_, Shared>) -> CmdResult<PetInit> {
     let s = lock(&state);
+    crate::debug_log!("pet_init called by the pet window");
     // Hand over the current frame and bubble: the window may have missed
     // their events while it was loading.
-    Ok(PetInit { pack: s.loaded_pack()?, frame: s.last_frame.clone(), bubble: s.bubble_view() })
+    let init = s.loaded_pack().map(|pack| PetInit {
+        debug: crate::debug_enabled(),
+        pack,
+        frame: s.last_frame.clone(),
+        bubble: s.bubble_view(),
+    });
+    if let Err(e) = &init {
+        eprintln!("[pet window] pet_init failed: {e}");
+    }
+    init
+}
+
+/// Lets the windows report problems to the terminal.
+#[tauri::command]
+pub fn log_from_page(window: tauri::WebviewWindow, msg: String) {
+    eprintln!("[{} window] {msg}", window.label());
 }
 
 #[tauri::command]
