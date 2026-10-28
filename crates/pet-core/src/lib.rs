@@ -5,8 +5,12 @@
 //! types from its engine loop.
 
 pub mod behavior;
+pub mod history;
 pub mod mood;
 pub mod pack;
+pub mod productivity;
+pub mod quick;
 pub mod reminder;
 pub mod settings;
 pub mod store;
+pub mod system;

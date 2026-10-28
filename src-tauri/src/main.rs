@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod hotkeys;
 mod platform;
 mod state;
 
@@ -11,11 +12,12 @@ use state::{AppState, Env, TickOutput, WindowPlan};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
+use tauri_plugin_notification::NotificationExt;
 
 pub type Shared = Mutex<AppState>;
 
@@ -35,9 +37,19 @@ macro_rules! debug_log {
 }
 
 const FRAME: Duration = Duration::from_millis(33);
+const SYSTEM_SAMPLE_EVERY: Duration = Duration::from_secs(2);
 
 fn main() {
     tauri::Builder::default()
+        // Must be first: a second launch just opens the running pet's dashboard.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = show_dashboard(app);
+        }))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle();
             let data_dir = handle.path().app_data_dir()?;
@@ -46,6 +58,7 @@ fn main() {
 
             let data_path = data_dir.join("data.json");
             let data = load_data(&data_path);
+            let settings = data.settings.clone();
 
             // Built-in packs first so a user pack with the same id wins.
             let mut roots: Vec<PathBuf> = Vec::new();
@@ -64,6 +77,14 @@ fn main() {
                 WebviewWindowBuilder::from_config(handle, config)?.build()?;
             }
             build_tray(handle)?;
+            handle.on_menu_event(|app, event| {
+                if event.id.as_ref().starts_with("ctx:") {
+                    commands::on_context_menu(app, event.id.as_ref());
+                }
+            });
+            if let Err(e) = hotkeys::apply(handle, &settings) {
+                eprintln!("DesktopPet: {e}");
+            }
             spawn_engine(handle.clone());
 
             debug_log!("data: {}", data_dir.display());
@@ -75,34 +96,54 @@ fn main() {
             }
             Ok(())
         })
-        .on_window_event(|window, event| {
+        .on_window_event(|window, event| match event {
             // Closing the dashboard only hides it; quit from the tray.
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "dashboard" {
-                    api.prevent_close();
-                    let _ = window.hide();
-                }
+            WindowEvent::CloseRequested { api, .. } if window.label() != "pet" => {
+                api.prevent_close();
+                let _ = window.hide();
             }
+            // The quick-add box goes away when you click elsewhere.
+            WindowEvent::Focused(false) if window.label() == "quickadd" => {
+                let _ = window.hide();
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::pet_init,
+            commands::log_from_page,
             commands::pet_pointer_down,
             commands::pet_pointer_up,
-            commands::reminder_done,
-            commands::reminder_snooze,
+            commands::bubble_action,
+            commands::pet_feed,
+            commands::pet_play,
+            commands::pet_context_menu,
             commands::open_dashboard,
+            commands::parse_quick,
+            commands::quick_add,
+            commands::hide_quick_add,
             commands::get_overview,
             commands::get_status,
             commands::add_reminder,
             commands::update_reminder,
             commands::set_reminder_enabled,
             commands::delete_reminder,
+            commands::add_preset,
             commands::add_note,
             commands::delete_note,
+            commands::add_category,
+            commands::update_category,
+            commands::delete_category,
             commands::save_settings,
             commands::reload_packs,
             commands::pet_say,
-            commands::log_from_page,
+            commands::focus_start,
+            commands::focus_stop,
+            commands::get_history,
+            commands::export_data,
+            commands::import_data,
+            commands::get_autostart,
+            commands::set_autostart,
+            commands::list_monitors,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DesktopPet");
@@ -131,6 +172,16 @@ pub fn show_dashboard(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Open the quick-add box in the middle of the screen, ready to type.
+pub fn show_quick_add(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("quickadd") {
+        let _ = w.center();
+        let _ = w.show();
+        let _ = w.set_focus();
+        let _ = app.emit_to("quickadd", "quickadd://open", ());
+    }
+}
+
 fn toggle_pet(app: &AppHandle) -> tauri::Result<()> {
     if let Some(w) = app.get_webview_window("pet") {
         if w.is_visible()? {
@@ -143,10 +194,17 @@ fn toggle_pet(app: &AppHandle) -> tauri::Result<()> {
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open dashboard", true, None::<&str>)?;
-    let toggle = MenuItem::with_id(app, "toggle", "Show / hide pet", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &toggle, &quit])?;
+    let item = |id: &str, text: &str| MenuItem::with_id(app, id, text, true, None::<&str>);
+    let menu = Menu::with_items(
+        app,
+        &[
+            &item("open", "Open dashboard")?,
+            &item("quick", "Quick add…")?,
+            &item("toggle", "Show / hide pet")?,
+            &PredefinedMenuItem::separator(app)?,
+            &item("quit", "Quit")?,
+        ],
+    )?;
 
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("DesktopPet")
@@ -155,8 +213,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| {
             let _ = match event.id.as_ref() {
                 "open" => show_dashboard(app),
+                "quick" => {
+                    show_quick_add(app);
+                    Ok(())
+                }
                 "toggle" => toggle_pet(app),
                 "quit" => {
+                    // Keep the mood and timers' effects on disk.
+                    let _ = app.state::<Shared>().lock().map(|s| s.save());
                     app.exit(0);
                     Ok(())
                 }
@@ -175,13 +239,24 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Things that need the main thread, refreshed about once a second.
+struct SlowEnv {
+    scale_factor: f64,
+    /// Work areas of all monitors, in the order the OS lists them.
+    monitors: Vec<Rect>,
+    current: Option<Rect>,
+    pet_visible: bool,
+    fullscreen: bool,
+}
+
 /// Runs the pet at ~30 fps on its own thread.
 fn spawn_engine(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last = Instant::now();
-        let mut monitor_checked: Option<Instant> = None;
-        let mut scale_factor = 1.0;
-        let mut fallback_area = Rect { left: 0.0, top: 0.0, right: 1920.0, bottom: 1080.0 };
+        let mut slow_checked: Option<Instant> = None;
+        let mut sampled: Option<Instant> = None;
+        let mut slow =
+            SlowEnv { scale_factor: 1.0, monitors: vec![], current: None, pet_visible: true, fullscreen: false };
         let mut applied: Option<WindowPlan> = None;
 
         loop {
@@ -193,37 +268,61 @@ fn spawn_engine(app: AppHandle) {
             let state = app.state::<Shared>();
 
             // Window queries go through the main thread, so only once a second.
-            if monitor_checked.is_none_or(|t| t.elapsed() >= Duration::from_secs(1)) {
-                monitor_checked = Some(Instant::now());
-                scale_factor = win.scale_factor().unwrap_or(scale_factor);
+            if slow_checked.is_none_or(|t| t.elapsed() >= Duration::from_secs(1)) {
+                slow_checked = Some(Instant::now());
+                slow.scale_factor = win.scale_factor().unwrap_or(slow.scale_factor);
+                slow.pet_visible = win.is_visible().unwrap_or(true);
+                slow.fullscreen = platform::fullscreen_app();
+                if let Ok(list) = app.available_monitors() {
+                    slow.monitors = list.iter().map(|m| work_rect(m.work_area())).collect();
+                }
                 if let Ok(Some(m)) = win.current_monitor() {
-                    let (p, s) = (m.position(), m.size());
-                    fallback_area = Rect {
-                        left: p.x.into(),
-                        top: p.y.into(),
-                        right: f64::from(p.x) + f64::from(s.width),
-                        bottom: f64::from(p.y) + f64::from(s.height),
-                    };
+                    slow.current = Some(work_rect(m.work_area()));
                 }
             }
+            let system = (sampled.is_none_or(|t| t.elapsed() >= SYSTEM_SAMPLE_EVERY)).then(|| {
+                let dt = sampled.map_or(SYSTEM_SAMPLE_EVERY.as_secs_f32(), |t| t.elapsed().as_secs_f32());
+                sampled = Some(Instant::now());
+                (platform::system_sample(), dt)
+            });
 
-            let (px, py) = {
+            let (px, py, monitor) = {
                 let s = state.lock().unwrap_or_else(|e| e.into_inner());
-                (s.pet.x, s.pet.y)
+                (s.pet.x, s.pet.y, s.data.settings.monitor_index)
             };
+            let fallback = Rect { left: 0.0, top: 0.0, right: 1920.0, bottom: 1080.0 };
+            let work_area = monitor
+                .and_then(|i| slow.monitors.get(i as usize).copied())
+                .or_else(|| platform::work_area_near(px + 1.0, py + 1.0))
+                .or(slow.current)
+                .unwrap_or(fallback);
             let env = Env {
                 now: Local::now().naive_local(),
                 cursor: platform::cursor_pos(),
                 left_down: platform::left_button_down(),
                 idle_secs: platform::user_idle_secs(),
-                work_area: platform::work_area_near(px, py).unwrap_or(fallback_area),
-                scale_factor,
+                work_area,
+                scale_factor: slow.scale_factor,
+                foreground: platform::foreground_window(),
+                pet_visible: slow.pet_visible,
+                fullscreen: slow.fullscreen,
+                system: system.map(|(s, _)| s),
+                system_dt: system.map_or(0.0, |(_, dt)| dt),
             };
 
             let out = state.lock().unwrap_or_else(|e| e.into_inner()).tick(dt, &env);
             apply(&app, &win, out, &mut applied);
         }
     });
+}
+
+fn work_rect(r: &tauri::PhysicalRect<i32, u32>) -> Rect {
+    Rect {
+        left: r.position.x.into(),
+        top: r.position.y.into(),
+        right: f64::from(r.position.x) + f64::from(r.size.width),
+        bottom: f64::from(r.position.y) + f64::from(r.size.height),
+    }
 }
 
 fn apply(app: &AppHandle, win: &WebviewWindow, out: TickOutput, applied: &mut Option<WindowPlan>) {
@@ -250,5 +349,18 @@ fn apply(app: &AppHandle, win: &WebviewWindow, out: TickOutput, applied: &mut Op
     }
     if let Some(bubble) = out.bubble {
         let _ = app.emit_to("pet", "pet://bubble", bubble);
+    }
+    for (title, body) in out.notify {
+        if let Err(e) = app.notification().builder().title(title).body(body).show() {
+            eprintln!("DesktopPet: notification failed: {e}");
+        }
+    }
+    if let Some(tip) = out.tooltip {
+        if let Some(tray) = app.tray_by_id("main") {
+            let _ = tray.set_tooltip(Some(tip));
+        }
+    }
+    if out.data_changed {
+        commands::data_changed(app);
     }
 }

@@ -16,7 +16,6 @@ let frame = null;
 let animName = null;
 let frameIndex = 0;
 let frameTimer = null;
-let reminderId = null;
 
 function playAnimation(name) {
   if (!pack || name === animName) return;
@@ -68,15 +67,24 @@ function placeBubble() {
 function showBubble(b) {
   if (!b) {
     bubble.hidden = true;
-    reminderId = null;
     return;
   }
-  const isReminder = b.kind === "reminder";
-  reminderId = isReminder ? b.reminderId : null;
-  bubble.classList.toggle("reminder", isReminder);
-  bubbleTitle.textContent = isReminder ? `⏰ ${b.title}` : "";
+  bubble.classList.toggle("reminder", b.kind === "reminder");
+  bubble.classList.toggle("nudge", b.kind === "nudge");
+  bubbleTitle.textContent = b.kind === "reminder" ? `⏰ ${b.title}` : b.title || "";
   bubbleText.textContent = b.text;
-  bubbleActions.hidden = !isReminder;
+  const actions = b.actions || [];
+  bubbleActions.replaceChildren(
+    ...actions.map((a, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = a.label;
+      if (i === 0) btn.classList.add("primary");
+      btn.addEventListener("click", () => invoke("bubble_action", { id: a.id }).catch(report));
+      return btn;
+    }),
+  );
+  bubbleActions.hidden = actions.length === 0;
   bubble.hidden = false;
   placeBubble();
 }
@@ -94,16 +102,9 @@ window.addEventListener("pointerup", (e) => {
 });
 sprite.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  invoke("open_dashboard");
+  invoke("pet_context_menu").catch(report);
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
-
-document.getElementById("done").addEventListener("click", () => {
-  if (reminderId != null) invoke("reminder_done", { id: reminderId });
-});
-document.getElementById("snooze").addEventListener("click", () => {
-  if (reminderId != null) invoke("reminder_snooze", { id: reminderId, minutes: null });
-});
 
 // Report script errors to the terminal; the window may be too small to show them.
 const report = (msg) => invoke("log_from_page", { msg: String(msg) }).catch(() => {});

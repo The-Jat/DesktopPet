@@ -74,6 +74,8 @@ pub struct Reminder {
     pub snoozed_until: Option<NaiveDateTime>,
     #[serde(default)]
     pub completed_at: Option<NaiveDateTime>,
+    #[serde(default)]
+    pub category_id: Option<u64>,
 }
 
 fn yes() -> bool {
@@ -91,6 +93,7 @@ impl Reminder {
             enabled: true,
             snoozed_until: None,
             completed_at: None,
+            category_id: None,
         }
     }
 

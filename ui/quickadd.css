@@ -1,0 +1,91 @@
+:root {
+  --bg: #fffdf6;
+  --text: #24231f;
+  --muted: #6d6a61;
+  --line: #2b2b2b;
+  --accent: #2f7d4f;
+  --warn: #8a6100;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #262624;
+    --text: #ecebe6;
+    --muted: #a3a097;
+    --line: #5dbb83;
+    --accent: #5dbb83;
+    --warn: #f0c35a;
+    color-scheme: dark;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+body {
+  box-sizing: border-box;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+}
+
+form {
+  padding: 14px 16px;
+}
+
+#text {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 17px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--muted);
+  border-radius: 10px;
+  outline: none;
+}
+
+#text:focus {
+  border-color: var(--accent);
+}
+
+p {
+  margin: 8px 2px 0;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+#preview.reminder {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+#preview.note {
+  color: var(--warn);
+}
+
+#preview.error {
+  color: #c62828;
+}
+
+.keys {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+kbd {
+  font: inherit;
+  padding: 0 4px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+}

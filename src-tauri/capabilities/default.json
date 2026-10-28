@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Event and window basics for the pet and dashboard windows.",
-  "windows": ["pet", "dashboard"],
-  "permissions": ["core:default"]
+  "description": "Event and window basics for all windows; file dialogs for the dashboard's export/import.",
+  "windows": ["pet", "dashboard", "quickadd"],
+  "permissions": ["core:default", "notification:default", "dialog:allow-save", "dialog:allow-open"]
 }
