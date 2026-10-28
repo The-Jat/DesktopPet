@@ -129,6 +129,10 @@ pub fn pet_context_menu(app: AppHandle, window: WebviewWindow, state: State<'_, 
     menu.append(&PredefinedMenuItem::separator(&app).map_err(err)?).map_err(err)?;
     menu.append(&item("ctx:quick", "Quick add…").map_err(err)?).map_err(err)?;
     menu.append(&item("ctx:clip", "Save clipboard as note").map_err(err)?).map_err(err)?;
+    menu.append(&PredefinedMenuItem::separator(&app).map_err(err)?).map_err(err)?;
+    menu.append(&item("ctx:climb", "Climb a window").map_err(err)?).map_err(err)?;
+    menu.append(&item("ctx:fun", "Do something fun").map_err(err)?).map_err(err)?;
+    menu.append(&PredefinedMenuItem::separator(&app).map_err(err)?).map_err(err)?;
     let focus_text = if focusing { "Stop focus timer" } else { "Start focus timer" };
     menu.append(&item("ctx:focus", focus_text).map_err(err)?).map_err(err)?;
     menu.append(&PredefinedMenuItem::separator(&app).map_err(err)?).map_err(err)?;
@@ -147,6 +151,8 @@ pub fn on_context_menu(app: &AppHandle, id: &str) {
             s.pointer_up();
         }
         "ctx:feed" => s.feed(),
+        "ctx:climb" => s.climb_now(),
+        "ctx:fun" => s.fun_now(),
         "ctx:play" => s.play(),
         "ctx:focus" => {
             if s.focus.view(s.clock()).phase == "off" {

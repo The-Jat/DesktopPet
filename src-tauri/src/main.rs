@@ -268,6 +268,9 @@ fn spawn_engine(app: AppHandle) {
         let mut recent: Vec<(u64, Instant)> = Vec::new();
         let mut windows_checked: Option<Instant> = None;
         let mut windows = Vec::new();
+        let demo = std::env::var("DESKTOPPET_DEMO").ok();
+        // First demo 5 seconds after start.
+        let mut demo_at = Instant::now() - Duration::from_secs(25);
 
         loop {
             std::thread::sleep(FRAME);
@@ -315,7 +318,20 @@ fn spawn_engine(app: AppHandle) {
                 // The window it is standing on stays usable even if not recent.
                 let mut ids: Vec<u64> = recent.iter().map(|(id, _)| *id).collect();
                 ids.extend(standing_on.filter(|id| !ids.contains(id)));
-                windows = platform::climbable_windows(&ids, CAPTION_BUTTONS * slow.scale_factor);
+                let found = platform::climbable_windows(&ids, CAPTION_BUTTONS * slow.scale_factor);
+                if debug_enabled() && found != windows {
+                    let list: Vec<String> = found
+                        .iter()
+                        .map(|w| {
+                            format!(
+                                "{:#x} top={} x={}..{} walk={}..{}",
+                                w.id, w.top, w.left, w.right, w.walk_left, w.walk_right
+                            )
+                        })
+                        .collect();
+                    debug_log!("climbable windows ({} recent): {list:?}", ids.len());
+                }
+                windows = found;
             }
             let fallback = Rect { left: 0.0, top: 0.0, right: 1920.0, bottom: 1080.0 };
             let work_area = monitor
@@ -337,6 +353,19 @@ fn spawn_engine(app: AppHandle) {
                 system_dt: system.map_or(0.0, |(_, dt)| dt),
                 windows: windows.clone(),
             };
+
+            // DESKTOPPET_DEMO=climb|fun: show that behaviour every 30 seconds.
+            if let Some(demo) = demo.as_deref() {
+                if demo_at.elapsed() >= Duration::from_secs(30) {
+                    demo_at = Instant::now();
+                    let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
+                    match demo {
+                        "climb" => s.climb_now(),
+                        "fun" => s.fun_now(),
+                        _ => {}
+                    }
+                }
+            }
 
             let out = state.lock().unwrap_or_else(|e| e.into_inner()).tick(dt, &env);
             apply(&app, &win, out, &mut applied);

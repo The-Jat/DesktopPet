@@ -48,6 +48,9 @@ pub struct Settings {
     /// using, walk on top of them and jump between them.
     pub climb_windows: bool,
     pub climbs_per_hour: u32,
+    /// Now and then ride a bike, motorbike, car or skateboard, dance, or read.
+    pub fun_enabled: bool,
+    pub fun_per_hour: u32,
 
     // ---- reactions (#8) ----
     /// Now and then walk over to the mouse pointer.
@@ -118,6 +121,8 @@ impl Default for Settings {
             monitor_index: None,
             climb_windows: true,
             climbs_per_hour: 3,
+            fun_enabled: true,
+            fun_per_hour: 4,
             follow_cursor: true,
             shake_reaction: true,
             greetings_enabled: true,
@@ -170,6 +175,7 @@ impl Settings {
         self.daily_summary_minute %= 60;
         self.monitor_index = self.monitor_index.filter(|i| *i < 16);
         self.climbs_per_hour = self.climbs_per_hour.clamp(1, 20);
+        self.fun_per_hour = self.fun_per_hour.clamp(1, 20);
         self.hotkey_quick_add = self.hotkey_quick_add.trim().to_owned();
         self.hotkey_clipboard_note = self.hotkey_clipboard_note.trim().to_owned();
         self.pet_name = self.pet_name.trim().chars().take(32).collect();

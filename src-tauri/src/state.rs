@@ -54,8 +54,20 @@ pub struct FrameView {
     pub window_width: f64,
     pub window_height: f64,
     pub sprite_left: f64,
+    pub sprite_top: f64,
     pub sprite_width: f64,
     pub sprite_height: f64,
+    /// A ladder standing against a window, inside the pet window.
+    pub ladder: Option<LadderView>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LadderView {
+    pub left: f64,
+    pub top: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -159,6 +171,8 @@ pub struct AppState {
     greeted: bool,
     /// The user was away (idle past the break length) at the last check.
     away_marker: bool,
+    /// How many windows were climbable at the last tick.
+    climbable: usize,
 }
 
 impl AppState {
@@ -194,6 +208,7 @@ impl AppState {
             last_tooltip: String::new(),
             greeted: false,
             away_marker: false,
+            climbable: 0,
         };
         s.reload_packs();
         s
@@ -343,6 +358,26 @@ impl AppState {
     pub fn climbing(&self) -> bool {
         let s = &self.data.settings;
         s.climb_windows && s.roam_mode == RoamMode::BottomEdge
+    }
+
+    /// "Climb a window" from the menu, with a word on why not if it can't.
+    pub fn climb_now(&mut self) {
+        let s = &self.data.settings;
+        if s.roam_mode != RoamMode::BottomEdge {
+            self.say("I only climb windows when I live along the taskbar (Dashboard → Pet → Where it goes).");
+        } else if !s.climb_windows {
+            self.say("Climbing is turned off (Dashboard → Pet).");
+        } else if self.climbable == 0 {
+            self.say("I don't see a window I can climb. Maximised windows have no room on top, and I only use windows you've clicked in the last 10 minutes.");
+        } else {
+            self.pet.climb_now();
+            self.say("Here I go!");
+        }
+    }
+
+    /// "Do something fun" from the menu.
+    pub fn fun_now(&mut self) {
+        self.pet.fun_now();
     }
 
     /// The window the pet stands on, so it stays climbable while in use.
@@ -496,6 +531,7 @@ impl AppState {
             sprite: (sw, sh),
             windows: if self.climbing() { &env.windows } else { &[] },
             climbs_per_hour: if self.climbing() { f64::from(s.climbs_per_hour) } else { 0.0 },
+            fun_per_hour: if s.fun_enabled { f64::from(s.fun_per_hour) } else { 0.0 },
         };
 
         // Moved to another monitor (by the settings): hop over.
@@ -506,6 +542,10 @@ impl AppState {
             self.pet.teleport(wa.left + (wa.width() - sw) / 2.0, bounds.floor);
         }
         self.pet.tick(inputs, &mut self.rng);
+        self.climbable = env.windows.len();
+        if self.pet.take_climb_failed() {
+            self.say("I can't find a way up any window right now.");
+        }
 
         if let Some(b) = &self.bubble {
             if b.expires.is_some_and(|t| self.clock >= t) {
@@ -604,37 +644,58 @@ impl AppState {
     }
 
     fn layout(&mut self, env: &Env, sw: f64, sh: f64, out: &mut TickOutput) {
-        // Window geometry: exactly the sprite, plus room above it only while a
-        // bubble is showing. Keeping the window tight means no invisible area
-        // blocks clicks to the apps behind. (Click-through via
+        // The window covers exactly the sprite, plus the speech bubble above
+        // it and the ladder while they are shown. Keeping it tight means no
+        // invisible area blocks clicks to the apps behind. (Click-through via
         // `set_ignore_cursor_events` is not an option: on Windows it makes the
         // window WS_EX_LAYERED, and the WebView2 content then never draws.)
         let sf = env.scale_factor;
         let wa = env.work_area;
-        let (win_w, bh) =
-            if self.bubble.is_some() { (sw.max((BUBBLE_W * sf).round()), (BUBBLE_H * sf).round()) } else { (sw, 0.0) };
-        let win_h = sh + bh;
-        let mut win_x = self.pet.x + sw / 2.0 - win_w / 2.0;
-        if !self.pet.is_dragged() {
-            win_x = win_x.clamp(wa.left, (wa.right - win_w).max(wa.left));
+        let sprite = Rect { left: self.pet.x, top: self.pet.y, right: self.pet.x + sw, bottom: self.pet.y + sh };
+        let mut area = sprite;
+        if self.bubble.is_some() {
+            let (bw, bh) = ((BUBBLE_W * sf).round(), (BUBBLE_H * sf).round());
+            let mut bx = self.pet.x + sw / 2.0 - bw / 2.0;
+            if !self.pet.is_dragged() {
+                bx = bx.clamp(wa.left, (wa.right - bw).max(wa.left));
+            }
+            area = area.union(&Rect { left: bx, top: self.pet.y - bh, right: bx + bw, bottom: self.pet.y });
         }
-        let win_y = self.pet.y - bh;
-
-        let plan =
-            WindowPlan { x: win_x.round() as i32, y: win_y.round() as i32, width: win_w as u32, height: win_h as u32 };
+        let ladder = self.pet.ladder().map(|l| {
+            let lw = (sw * 0.42).round();
+            Rect { left: l.x - lw / 2.0, top: l.top, right: l.x + lw / 2.0, bottom: l.bottom }
+        });
+        if let Some(l) = ladder {
+            area = area.union(&l);
+        }
+        let (x, y) = (area.left.floor(), area.top.floor());
+        let plan = WindowPlan {
+            x: x as i32,
+            y: y as i32,
+            width: (area.right.ceil() - x) as u32,
+            height: (area.bottom.ceil() - y) as u32,
+        };
         if self.last_window != Some(plan) {
             self.last_window = Some(plan);
             out.window = Some(plan);
         }
 
+        let css = |v: f64| (v / sf * 10.0).round() / 10.0;
         let frame = FrameView {
             anim: self.pet.anim(),
             facing: self.pet.facing,
-            window_width: win_w / sf,
-            window_height: win_h / sf,
-            sprite_left: ((self.pet.x - win_x) / sf).round(),
-            sprite_width: sw / sf,
-            sprite_height: sh / sf,
+            window_width: css(f64::from(plan.width)),
+            window_height: css(f64::from(plan.height)),
+            sprite_left: css(sprite.left - x),
+            sprite_top: css(sprite.top - y),
+            sprite_width: css(sw),
+            sprite_height: css(sh),
+            ladder: ladder.map(|l| LadderView {
+                left: css(l.left - x),
+                top: css(l.top - y),
+                width: css(l.width()),
+                height: css(l.bottom - l.top),
+            }),
         };
         if self.last_frame.as_ref() != Some(&frame) {
             self.last_frame = Some(frame.clone());

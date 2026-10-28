@@ -2,9 +2,10 @@
 //
 //   node tools/gen-pets.mjs
 //
-// Both pets share one skeleton (body, head, limbs, face, props) and differ in
-// colours and markings, so every animation exists for both. Tweak the shapes
-// here and regenerate. Hand-drawn frames can replace these any time: the app
+// Both pets share one chibi skeleton (big head, small body, capsule limbs)
+// and differ in colours and markings, so every animation exists for both.
+// Motion cycles (walking, climbing, dancing, pedalling...) are computed from
+// a phase angle, so frames flow into each other. Tweak and regenerate; the app
 // only reads pets/<id>/manifest.json and the files it lists.
 
 import { mkdirSync, writeFileSync, readdirSync, rmSync } from "node:fs";
@@ -12,364 +13,682 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PETS = join(dirname(fileURLToPath(import.meta.url)), "..", "pets");
-const INK = "#2b2b2b";
+const INK = "#2d2a2e";
+const TAU = Math.PI * 2;
+const r1 = (n) => Math.round(n * 10) / 10;
 
 const SPECIES = {
   panda: {
     name: "Panda",
     fur: "#ffffff",
-    belly: "#f3f3f3",
-    limbs: INK,
+    furShade: "#e6e6ee",
+    belly: "#f6f6fa",
+    limb: "#2d2a2e",
+    limbLine: "#2d2a2e",
     ears: "round",
-    earColor: INK,
-    eyePatches: true,
-    nose: INK,
-    blush: "#ffb3c1",
+    earColor: "#2d2a2e",
+    earInner: "#57515c",
+    patches: true,
+    band: true,
+    nose: "#2d2a2e",
+    blush: "#ff9fb6",
+    pupil: "#1d1a1e",
     tail: null,
     food: "bamboo",
   },
   cat: {
     name: "Ginger Cat",
-    fur: "#f4a259",
-    belly: "#fde7cf",
-    limbs: "#e58e3f",
+    fur: "#f9b25c",
+    furShade: "#ec9537",
+    belly: "#fff1de",
+    limb: "#f5a246",
+    limbLine: INK,
     ears: "pointy",
-    earColor: "#f4a259",
-    eyePatches: false,
-    nose: "#e8576b",
-    blush: "#ff9aa8",
-    tail: "#e58e3f",
+    earColor: "#f9b25c",
+    earInner: "#ffb8c9",
+    patches: false,
+    band: false,
+    stripes: "#d97a22",
+    muzzle: "#fff1de",
+    nose: "#f06b85",
+    blush: "#ff8fa6",
+    pupil: "#3b2a22",
+    tail: "#ef9a3c",
     food: "fish",
   },
 };
 
-/** Draw one 128x128 frame. Faces right when `fx` > 0. */
-function pet(sp, {
-  dy = 0, // whole-body vertical offset (bob / hop)
-  fx = 0, // face shift, gives a slight head turn
-  legs = "stand", // stand | walkA | walkB | sit | dangle | climbA | climbB | tuck | hangA | hangB
-  arms = "down", // down | up | waveL | waveR | rest | dangleA | dangleB | hold | fan | climbL | climbR
-  eyes = "open", // open | closed | happy | sad | wide | half | droopy
-  mouth = "smile", // smile | open | frown | o | flat | chew | wavy
-  extras = [], // see the switch at the bottom
-  shadow = true,
-  sitting = false,
-  tailSwing = 0, // degrees
-} = {}) {
-  const p = [];
-  const bodyY = (sitting ? 96 : 90) + dy;
-  const headY = (sitting ? 56 : 50) + dy;
-  const limb = (x, y, rx, ry, rot) =>
-    `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${sp.limbs}" ${sp.limbs === INK ? "" : `stroke="${INK}" stroke-width="2"`} transform="rotate(${rot} ${x} ${y})"/>`;
+// ------------------------------------------------------------ primitives --
 
-  if (shadow) p.push(`<ellipse cx="64" cy="123" rx="${sitting ? 34 : 28}" ry="4" fill="#000" opacity=".15"/>`);
+const svgOpen = (sp, id) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="fur${id}" cx="42%" cy="32%" r="75%"><stop offset="0" stop-color="${sp.fur}"/><stop offset="0.72" stop-color="${sp.fur}"/><stop offset="1" stop-color="${sp.furShade}"/></radialGradient>
+  </defs>`;
 
-  // Tail (behind everything)
-  if (sp.tail) {
-    const ty = bodyY + 10;
-    p.push(
-      `<path d="M86 ${ty} q22 -4 20 -26 q-1 -10 6 -14" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round" transform="rotate(${tailSwing} 86 ${ty})"/>`,
-      `<path d="M86 ${ty} q22 -4 20 -26 q-1 -10 6 -14" fill="none" stroke="${sp.tail}" stroke-width="7" stroke-linecap="round" transform="rotate(${tailSwing} 86 ${ty})"/>`,
-    );
-  }
-
-  // Legs
-  switch (legs) {
-    case "stand": p.push(limb(48, 114 + dy, 10, 8, 0), limb(80, 114 + dy, 10, 8, 0)); break;
-    case "walkA": p.push(limb(44, 113 + dy, 10, 8, -15), limb(82, 116 + dy, 10, 7, 10)); break;
-    case "walkB": p.push(limb(46, 116 + dy, 10, 7, -10), limb(84, 113 + dy, 10, 8, 15)); break;
-    case "sit": p.push(limb(40, 116 + dy, 13, 8, -10), limb(88, 116 + dy, 13, 8, 10)); break;
-    case "dangle": p.push(limb(50, 118 + dy, 8, 11, 8), limb(78, 118 + dy, 8, 11, -8)); break;
-    case "climbA": p.push(limb(46, 104 + dy, 9, 8, -40), limb(82, 118 + dy, 9, 8, 10)); break;
-    case "climbB": p.push(limb(46, 118 + dy, 9, 8, -10), limb(82, 104 + dy, 9, 8, 40)); break;
-    case "tuck": p.push(limb(50, 106 + dy, 10, 7, -20), limb(78, 106 + dy, 10, 7, 20)); break;
-    // Perching: legs hang over the edge below the seat, swinging.
-    case "hangA": p.push(limb(50, 116, 7, 11, 14), limb(78, 116, 7, 11, -4)); break;
-    case "hangB": p.push(limb(50, 116, 7, 11, 4), limb(78, 116, 7, 11, -14)); break;
-  }
-
-  // Body
-  p.push(`<ellipse cx="64" cy="${bodyY}" rx="${sitting ? 32 : 29}" ry="${sitting ? 24 : 25}" fill="${sp.fur}" stroke="${INK}" stroke-width="2.5"/>`);
-  p.push(`<ellipse cx="64" cy="${bodyY + 4}" rx="15" ry="13" fill="${sp.belly}"/>`);
-
-  // Arms
-  const by = bodyY;
-  const arm = (x, y, rot) => limb(x, y, 8, 13, rot);
-  const armSets = {
-    down: [arm(38, by, 20), arm(90, by, -20)],
-    rest: [arm(42, by + 8, 50), arm(86, by + 8, -50)],
-    up: [arm(32, by - 18, -35), arm(96, by - 18, 35)],
-    waveL: [arm(32, by - 18, -35), arm(90, by, -20)],
-    waveR: [arm(38, by, 20), arm(96, by - 18, 35)],
-    dangleA: [arm(34, by - 20, -20), arm(94, by - 20, 20)],
-    dangleB: [arm(36, by - 22, -10), arm(92, by - 22, 10)],
-    hold: [arm(50, by - 8, 45), arm(78, by - 8, -45)],
-    fan: [arm(38, by, 20), arm(98, by - 26, 60)],
-    climbL: [arm(34, by - 28, -15), arm(92, by - 8, 40)],
-    climbR: [arm(36, by - 8, -40), arm(94, by - 28, 15)],
-  };
-  const armsSvg = armSets[arms];
-
-  // Ears, then head on top
-  const ex = (x) => x + fx * 0.5;
-  if (sp.ears === "round") {
-    p.push(`<circle cx="${ex(36)}" cy="${headY - 26}" r="12" fill="${sp.earColor}"/>`);
-    p.push(`<circle cx="${ex(92)}" cy="${headY - 26}" r="12" fill="${sp.earColor}"/>`);
-  } else {
-    const ear = (x, flip) => {
-      const s = flip ? -1 : 1;
-      return `<path d="M${ex(x) - 13 * s} ${headY - 18} L${ex(x) - 6 * s} ${headY - 44} L${ex(x) + 12 * s} ${headY - 26} Z" fill="${sp.earColor}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>` +
-        `<path d="M${ex(x) - 8 * s} ${headY - 22} L${ex(x) - 5 * s} ${headY - 37} L${ex(x) + 5 * s} ${headY - 27} Z" fill="#ffc0cb"/>`;
-    };
-    p.push(ear(38, false), ear(90, true));
-  }
-  p.push(`<circle cx="64" cy="${headY}" r="34" fill="${sp.fur}" stroke="${INK}" stroke-width="2.5"/>`);
-  if (sp.name === "Ginger Cat") {
-    // Forehead stripes and a pale muzzle.
-    for (const [x, len] of [[56, 9], [64, 12], [72, 9]]) {
-      p.push(`<path d="M${x + fx * 0.6} ${headY - 33} v${len}" stroke="#c96f22" stroke-width="3.5" stroke-linecap="round"/>`);
-    }
-    p.push(`<ellipse cx="${64 + fx}" cy="${headY + 15}" rx="15" ry="10" fill="${sp.belly}"/>`);
-  }
-
-  // Face
-  const lx = 50 + fx, rx = 78 + fx, ey = headY + 2;
-  const eyeInk = sp.eyePatches ? "#fff" : INK;
-  if (sp.eyePatches) {
-    p.push(`<ellipse cx="${lx}" cy="${ey}" rx="9" ry="11" fill="${INK}" transform="rotate(25 ${lx} ${ey})"/>`);
-    p.push(`<ellipse cx="${rx}" cy="${ey}" rx="9" ry="11" fill="${INK}" transform="rotate(-25 ${rx} ${ey})"/>`);
-  }
-  const line = (d) => `<path d="${d}" fill="none" stroke="${eyeInk}" stroke-width="2.4" stroke-linecap="round"/>`;
-  const white = sp.eyePatches ? "#fff" : "#fff";
-  for (const x of [lx + 1, rx - 1]) {
-    const ring = sp.eyePatches ? "" : ` stroke="${INK}" stroke-width="1.5"`;
-    switch (eyes) {
-      case "open":
-        p.push(`<circle cx="${x}" cy="${ey - 1}" r="4.4" fill="${white}"${ring}/><circle cx="${x + 1 + fx * 0.25}" cy="${ey}" r="2.6" fill="${INK}"/>`);
-        break;
-      case "wide":
-        p.push(`<circle cx="${x}" cy="${ey - 1}" r="5.8" fill="${white}"${ring}/><circle cx="${x}" cy="${ey - 1}" r="2" fill="${INK}"/>`);
-        break;
-      case "closed": p.push(line(`M${x - 4} ${ey} q4 3 8 0`)); break;
-      case "happy": p.push(line(`M${x - 4} ${ey + 1} q4 -6 8 0`)); break;
-      case "sad":
-        p.push(`<circle cx="${x}" cy="${ey + 1}" r="3.8" fill="${white}"${ring}/><circle cx="${x}" cy="${ey + 2}" r="2.2" fill="${INK}"/>`);
-        p.push(line(x < 64 ? `M${x - 5} ${ey - 5} l8 3` : `M${x + 5} ${ey - 5} l-8 3`));
-        break;
-      case "half": p.push(line(`M${x - 4} ${ey} h8`)); break;
-      case "droopy":
-        p.push(`<circle cx="${x}" cy="${ey + 1}" r="3.8" fill="${white}"${ring}/><circle cx="${x}" cy="${ey + 2}" r="2.2" fill="${INK}"/>`);
-        p.push(`<path d="M${x - 5} ${ey - 1} h10" stroke="${sp.eyePatches ? INK : sp.fur}" stroke-width="4"/>`);
-        p.push(line(`M${x - 5} ${ey + 1} h10`));
-        break;
-    }
-  }
-  const nx = 64 + fx, ny = headY + 13;
-  p.push(sp.eyePatches
-    ? `<ellipse cx="${nx}" cy="${ny}" rx="4.5" ry="3.2" fill="${sp.nose}"/>`
-    : `<path d="M${nx - 4} ${ny - 2} h8 l-4 4 z" fill="${sp.nose}" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>`);
-  const m = (d, fill = "none") => `<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
-  switch (mouth) {
-    case "smile": p.push(m(`M${nx - 6} ${ny + 5} q3 4 6 0 q3 4 6 0`)); break;
-    case "open": p.push(m(`M${nx - 7} ${ny + 5} q7 11 14 0 z`, "#e8576b")); break;
-    case "frown": p.push(m(`M${nx - 6} ${ny + 9} q6 -6 12 0`)); break;
-    case "o": p.push(`<ellipse cx="${nx}" cy="${ny + 9}" rx="3.5" ry="4.5" fill="#e8576b" stroke="${INK}" stroke-width="2"/>`); break;
-    case "flat": p.push(m(`M${nx - 5} ${ny + 7} h10`)); break;
-    case "chew": p.push(m(`M${nx - 5} ${ny + 6} q5 5 10 0 q-5 2 -10 0z`, "#e8576b")); break;
-    case "wavy": p.push(m(`M${nx - 7} ${ny + 8} q2 -3 4 0 q2 3 4 0 q2 -3 4 0`)); break;
-  }
-  if (!sp.eyePatches) {
-    // Whiskers.
-    for (const s of [-1, 1]) {
-      for (const dyw of [-2, 3]) {
-        p.push(`<path d="M${nx + s * 12} ${ny + 4 + dyw} l${s * 16} ${dyw * 1.5 - 1}" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/>`);
-      }
-    }
-  }
-  const flush = extras.includes("flush");
-  if (eyes !== "sad" && eyes !== "droopy") {
-    for (const cx of [40 + fx, 88 + fx]) {
-      p.push(`<ellipse cx="${cx}" cy="${headY + 14}" rx="${flush ? 7 : 5}" ry="${flush ? 5 : 5}" fill="${flush ? "#ff6b6b" : sp.blush}" opacity="${flush ? ".8" : ".75"}"/>`);
-    }
-  }
-
-  // Props held in the arms go between the head and the arms.
-  const text = (x, y, size, s, fill = INK) =>
-    `<text x="${x}" y="${y}" font-family="Segoe UI, Arial, sans-serif" font-weight="700" font-size="${size}" fill="${fill}">${s}</text>`;
-  const props = [];
-  const over = [];
-  for (const e of extras) {
-    switch (e) {
-      case "food1":
-      case "food2": {
-        const bite = e === "food2";
-        if (sp.food === "bamboo") {
-          const top = bite ? 66 : 60;
-          props.push(`<g transform="rotate(-28 64 ${by})"><rect x="60" y="${top + dy}" width="8" height="${by + 10 - top}" rx="2" fill="#8bc34a" stroke="#33691e" stroke-width="1.5"/><path d="M60 ${by - 8} h8 M60 ${by + 2} h8" stroke="#33691e" stroke-width="1.5"/><path d="M68 ${by - 4} q12 -6 16 2 q-10 2 -16 -2z" fill="#7cb342" stroke="#33691e" stroke-width="1"/></g>`);
-        } else {
-          const len = bite ? 20 : 28;
-          props.push(`<g transform="rotate(-20 64 ${by - 6})"><ellipse cx="${64 + (28 - len) / 2}" cy="${by - 6}" rx="${len / 2}" ry="6" fill="#7fb3d5" stroke="${INK}" stroke-width="1.5"/><path d="M${64 + len / 2 + (28 - len) / 2} ${by - 6} l8 -6 v12 z" fill="#7fb3d5" stroke="${INK}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${58 + (28 - len) / 2}" cy="${by - 8}" r="1.3" fill="${INK}"/></g>`);
-        }
-        break;
-      }
-      case "crumbs": over.push(`<circle cx="${82 + fx}" cy="${headY + 26}" r="1.5" fill="#33691e"/><circle cx="${86 + fx}" cy="${headY + 31}" r="1.2" fill="#33691e"/>`); break;
-      case "ball1": over.push(`<circle cx="102" cy="${by - 30}" r="9" fill="#ff7043" stroke="${INK}" stroke-width="2"/><path d="M93 ${by - 30} q9 6 18 0" fill="none" stroke="#fff" stroke-width="2"/>`); break;
-      case "ball2": over.push(`<circle cx="108" cy="${by - 52}" r="9" fill="#ff7043" stroke="${INK}" stroke-width="2"/><path d="M99 ${by - 52} q9 -6 18 0" fill="none" stroke="#fff" stroke-width="2"/>`); break;
-      case "ball3": over.push(`<circle cx="104" cy="${by + 18}" r="9" fill="#ff7043" stroke="${INK}" stroke-width="2"/><path d="M95 ${by + 18} q9 6 18 0" fill="none" stroke="#fff" stroke-width="2"/>`); break;
-      case "zzz1": over.push(text(104, 16, 12, "z"), text(114, 8, 9, "z")); break;
-      case "zzz2": over.push(text(103, 18, 14, "z"), text(114, 9, 10, "z")); break;
-      case "heart": over.push(`<path d="M108 22 c-4 -6 -12 -2 -8 4 l8 8 l8 -8 c4 -6 -4 -10 -8 -4z" fill="#ff5c7a"/>`); break;
-      case "tear1": over.push(`<path d="M${lx - 2} ${ey + 9} q-3 5 0 7 q3 -2 0 -7z" fill="#7ec8ff"/>`); break;
-      case "tear2": over.push(`<path d="M${lx - 2} ${ey + 15} q-3 5 0 7 q3 -2 0 -7z" fill="#7ec8ff"/>`); break;
-      case "bang":
-        over.push(`<circle cx="110" cy="18" r="11" fill="#ffcc33" stroke="${INK}" stroke-width="2"/>`, text(106.5, 24.5, 17, "!"));
-        break;
-      case "dots": over.push(text(102, 14, 16, "…")); break;
-      case "sweat": over.push(`<path d="M100 ${headY - 16} q-4 6 0 9 q4 -3 0 -9z" fill="#7ec8ff"/>`); break;
-      case "sweat2":
-        over.push(`<path d="M100 ${headY - 12} q-4 6 0 9 q4 -3 0 -9z" fill="#7ec8ff"/>`, `<path d="M26 ${headY - 6} q-4 6 0 9 q4 -3 0 -9z" fill="#7ec8ff"/>`);
-        break;
-      case "steam1": over.push(`<path d="M44 ${headY - 30} q-4 -4 0 -8 q4 -4 0 -8 M84 ${headY - 30} q-4 -4 0 -8" fill="none" stroke="#bbb" stroke-width="2.5" stroke-linecap="round"/>`); break;
-      case "steam2": over.push(`<path d="M44 ${headY - 30} q4 -4 0 -8 q-4 -4 0 -8 M84 ${headY - 30} q4 -4 0 -8" fill="none" stroke="#bbb" stroke-width="2.5" stroke-linecap="round"/>`); break;
-      case "rumble1": over.push(`<path d="M50 ${by + 2} q3 -3 6 0 q3 3 6 0 M66 ${by + 8} q3 -3 6 0 q3 3 6 0" fill="none" stroke="${INK}" stroke-width="1.5" opacity=".6"/>`); break;
-      case "rumble2": over.push(`<path d="M52 ${by + 6} q3 3 6 0 q3 -3 6 0 M64 ${by} q3 3 6 0 q3 -3 6 0" fill="none" stroke="${INK}" stroke-width="1.5" opacity=".6"/>`); break;
-      case "thought": over.push(`<circle cx="98" cy="20" r="2" fill="#ccc"/><circle cx="104" cy="14" r="3" fill="#ccc"/><ellipse cx="114" cy="7" rx="10" ry="6" fill="#eee" stroke="#ccc"/>`, sp.food === "bamboo" ? `<rect x="108" y="5" width="12" height="4" rx="1" fill="#8bc34a" transform="rotate(-15 114 7)"/>` : `<ellipse cx="114" cy="7" rx="6" ry="3" fill="#7fb3d5"/>`); break;
-    }
-  }
-  p.push(...props, ...armsSvg, ...over);
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">\n  ${p.join("\n  ")}\n</svg>\n`;
+/** A rounded limb from (x1,y1) to (x2,y2), outlined. */
+function capsule(x1, y1, x2, y2, w, fill, line = INK) {
+  const a = `x1="${r1(x1)}" y1="${r1(y1)}" x2="${r1(x2)}" y2="${r1(y2)}" stroke-linecap="round"`;
+  return `<line ${a} stroke="${line}" stroke-width="${w + 5}"/><line ${a} stroke="${fill}" stroke-width="${w}"/>`;
 }
 
-const ANIMATIONS = {
-  idle: { fps: 3, frames: [{}, {}, { dy: 1, tailSwing: 6 }, { dy: 1, tailSwing: 6 }, {}, { eyes: "closed" }] },
-  walk: {
+const ellipse = (cx, cy, rx, ry, fill, extra = "") =>
+  `<ellipse cx="${r1(cx)}" cy="${r1(cy)}" rx="${r1(rx)}" ry="${r1(ry)}" fill="${fill}" ${extra}/>`;
+
+const text = (x, y, size, s, fill = INK, w = 700) =>
+  `<text x="${r1(x)}" y="${r1(y)}" font-family="Segoe UI, Arial, sans-serif" font-weight="${w}" font-size="${size}" fill="${fill}">${s}</text>`;
+
+// ---------------------------------------------------------------- the pet --
+//
+// o = {
+//   dx, dy:      whole-pet offset           rot:  body tilt around the feet (deg)
+//   sitting:     sitting body               face: face shift (head turn), look: [x,y] pupils
+//   eyes, mouth: expression                 ears: [leftDeg, rightDeg] wiggle
+//   arms:        [[x,y],[x,y]] paw positions   legs: "stand" | "sit" | "none" | [[x,y,rot],[x,y,rot]] feet
+//   tail:        swing (deg)                helmet, glasses: accessories
+//   blush, shadow (scale or 0), headDy
+// }
+
+function feet(sp, list, sitting) {
+  return list
+    .map(([x, y, rot]) => {
+      if (sitting) {
+        // Soles towards us, with paw pads.
+        return `<g transform="rotate(${rot} ${x} ${y})">${ellipse(x, y, 10, 11.5, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.4"`)}${ellipse(x, y + 2.5, 5, 4.2, "#ffb3c6")}${ellipse(x - 4.5, y - 5, 1.9, 2.2, "#ffb3c6")}${ellipse(x, y - 6.5, 1.9, 2.2, "#ffb3c6")}${ellipse(x + 4.5, y - 5, 1.9, 2.2, "#ffb3c6")}</g>`;
+      }
+      return ellipse(x, y, 11, 7.5, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.4" transform="rotate(${rot} ${x} ${y})"`);
+    })
+    .join("");
+}
+
+function eye(sp, cx, cy, kind, look) {
+  const [lx, ly] = look;
+  const lid = sp.patches ? "#fff" : INK;
+  const stroke = (d, w = 2.6) => `<path d="${d}" fill="none" stroke="${lid}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const shine = (x, y, big = 2.1) => ellipse(x + 1.9, y - 2.2, big, big, "#fff") + ellipse(x - 1.7, y + 2, big / 2.2, big / 2.2, "#fff");
+  const glossy = (rw, rp) => {
+    const sclera = sp.patches ? ellipse(cx, cy, rw, rw * 1.05, "#fff") : "";
+    return sclera + ellipse(cx + lx, cy + ly, rp, rp * 1.12, sp.pupil) + shine(cx + lx, cy + ly, rp * 0.42);
+  };
+  switch (kind) {
+    case "open": return glossy(6.4, 4.8);
+    case "wide": return glossy(7.6, 4.2) + ellipse(cx + lx, cy + ly - 0.5, 1.2, 1.2, "#fff");
+    case "closed": return stroke(`M${cx - 5} ${cy} q5 4.5 10 0`);
+    case "happy": return stroke(`M${cx - 5.5} ${cy + 2} q5.5 -7 11 0`);
+    case "sad": return glossy(6, 4.6) + stroke(cx < 64 ? `M${cx - 6} ${cy - 7} l10 3` : `M${cx + 6} ${cy - 7} l-10 3`, 2.4);
+    case "half": {
+      const c = sp.patches ? sp.limb : sp.fur;
+      return glossy(6.2, 4.6) + `<path d="M${cx - 7.5} ${cy - 8} h15 v7.5 h-15 z" fill="${c}"/>` + stroke(`M${cx - 6} ${cy - 0.5} h12`, 2.4);
+    }
+    case "squint": return stroke(cx < 64 ? `M${cx - 5} ${cy - 4} l8 4 l-8 4` : `M${cx + 5} ${cy - 4} l-8 4 l8 4`);
+    case "star": return `<path d="M${cx} ${cy - 7} l2 5 l5.5 0.4 l-4.2 3.4 l1.5 5.4 l-4.8 -3 l-4.8 3 l1.5 -5.4 l-4.2 -3.4 l5.5 -0.4 z" fill="${sp.patches ? "#ffe066" : "#ffcf33"}" stroke="${INK}" stroke-width="1"/>`;
+    case "down": return glossy(6.2, 4.6);
+    default: return "";
+  }
+}
+
+function mouth(sp, nx, ny, kind) {
+  const m = (d, fill = "none", w = 2.2) => `<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  switch (kind) {
+    case "w": return m(`M${nx - 6.5} ${ny + 4.5} q3.25 3.8 6.5 0 q3.25 3.8 6.5 0`);
+    case "smile": return m(`M${nx - 6} ${ny + 5} q6 6 12 0`);
+    case "open": return m(`M${nx - 7} ${ny + 4.5} q7 12 14 0 z`, "#e8576b") + ellipse(nx, ny + 10, 3.6, 2.2, "#ff9aa8");
+    case "o": return ellipse(nx, ny + 8.5, 3.4, 4.2, "#e8576b", `stroke="${INK}" stroke-width="2"`);
+    case "small": return ellipse(nx, ny + 7.5, 2.2, 2.6, "#e8576b", `stroke="${INK}" stroke-width="1.8"`);
+    case "frown": return m(`M${nx - 6} ${ny + 9.5} q6 -6 12 0`);
+    case "flat": return m(`M${nx - 5} ${ny + 7} h10`);
+    case "chew": return m(`M${nx - 5} ${ny + 6} q5 5 10 0 q-5 2 -10 0z`, "#e8576b");
+    case "wavy": return m(`M${nx - 8} ${ny + 8} q2 -3 4 0 q2 3 4 0 q2 -3 4 0 q2 3 4 0`);
+    case "yawn": return ellipse(nx, ny + 9, 5.5, 7, "#c94a5c", `stroke="${INK}" stroke-width="2"`) + ellipse(nx, ny + 12.5, 3.2, 2, "#ff9aa8");
+    case "grit": return m(`M${nx - 6} ${ny + 6} h12 v4 h-12 z`, "#fff", 1.8) + m(`M${nx - 2} ${ny + 6} v4 M${nx + 2} ${ny + 6} v4`, "none", 1.2);
+    default: return "";
+  }
+}
+
+function head(sp, o, id) {
+  const p = [];
+  const hy = 50 + (o.headDy ?? 0);
+  const f = o.face ?? 0;
+  const [el, er] = o.ears ?? [0, 0];
+  // Ears behind the head.
+  if (!o.helmet) {
+    if (sp.ears === "round") {
+      p.push(`<g transform="rotate(${el} 38 ${hy - 20})">${ellipse(33 + f * 0.4, hy - 28, 13.5, 13, sp.earColor)}${ellipse(35 + f * 0.4, hy - 26, 6.5, 6.5, sp.earInner)}</g>`);
+      p.push(`<g transform="rotate(${er} 90 ${hy - 20})">${ellipse(95 + f * 0.4, hy - 28, 13.5, 13, sp.earColor)}${ellipse(93 + f * 0.4, hy - 26, 6.5, 6.5, sp.earInner)}</g>`);
+    } else {
+      const ear = (x, s, rot) => `<g transform="rotate(${rot} ${x} ${hy - 22})"><path d="M${x - 14 * s} ${hy - 16} L${x - 7 * s} ${hy - 47} L${x + 13 * s} ${hy - 25} Z" fill="${sp.earColor}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/><path d="M${x - 8 * s} ${hy - 21} L${x - 5.5 * s} ${hy - 38} L${x + 5 * s} ${hy - 26} Z" fill="${sp.earInner}"/></g>`;
+      p.push(ear(37 + f * 0.4, 1, el), ear(91 + f * 0.4, -1, er));
+    }
+  }
+  p.push(ellipse(64, hy, 38.5, 34, `url(#fur${id})`, `stroke="${INK}" stroke-width="2.6"`));
+  if (sp.stripes) {
+    for (const [x, len] of [[55, 10], [64, 13], [73, 10]]) {
+      p.push(`<path d="M${x + f * 0.6} ${hy - 33} v${len}" stroke="${sp.stripes}" stroke-width="4" stroke-linecap="round"/>`);
+    }
+    p.push(`<path d="M27 ${hy + 2} h8 M27 ${hy + 9} h7 M101 ${hy + 2} h-8 M101 ${hy + 9} h-7" stroke="${sp.stripes}" stroke-width="3.2" stroke-linecap="round"/>`);
+  }
+  // Face
+  const ex = 47 + f, ex2 = 81 + f, ey = hy + 2;
+  if (sp.muzzle) p.push(ellipse(64 + f, hy + 15, 15, 10, sp.muzzle));
+  if (sp.patches) {
+    p.push(ellipse(ex, ey + 1, 11, 13.5, sp.limb, `transform="rotate(28 ${ex} ${ey + 1})"`));
+    p.push(ellipse(ex2, ey + 1, 11, 13.5, sp.limb, `transform="rotate(-28 ${ex2} ${ey + 1})"`));
+  }
+  const look = o.look ?? [f * 0.25, 0];
+  const eyes = o.eyes ?? "open";
+  p.push(eye(sp, ex + 1, ey, eyes, eyes === "down" ? [look[0], 2.2] : look));
+  p.push(eye(sp, ex2 - 1, ey, eyes, eyes === "down" ? [look[0], 2.2] : look));
+  if (o.glasses) {
+    p.push(`<g fill="none" stroke="#6b4b2a" stroke-width="2"><circle cx="${ex + 1}" cy="${ey}" r="9"/><circle cx="${ex2 - 1}" cy="${ey}" r="9"/><path d="M${ex + 10} ${ey - 1} q${(ex2 - ex - 20) / 2} -4 ${ex2 - ex - 20} 0"/></g>`);
+  }
+  // Blush
+  if (o.blush !== false) {
+    const hot = o.blush === "hot";
+    p.push(ellipse(37 + f, hy + 15, hot ? 8 : 6.2, hot ? 5 : 3.8, hot ? "#ff6b6b" : sp.blush, `opacity="${hot ? 0.85 : 0.72}"`));
+    p.push(ellipse(91 + f, hy + 15, hot ? 8 : 6.2, hot ? 5 : 3.8, hot ? "#ff6b6b" : sp.blush, `opacity="${hot ? 0.85 : 0.72}"`));
+  }
+  // Nose and mouth
+  const nx = 64 + f, ny = hy + 12;
+  if (sp.patches) {
+    p.push(`<path d="M${nx - 5} ${ny - 2.5} q5 -2 10 0 q-1 4.5 -5 5 q-4 -0.5 -5 -5z" fill="${sp.nose}"/>` + ellipse(nx - 1.5, ny - 1.8, 1.3, 0.8, "#fff", `opacity=".7"`));
+  } else {
+    p.push(`<path d="M${nx - 4} ${ny - 2.5} h8 l-4 4.5 z" fill="${sp.nose}" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/>`);
+    for (const s of [-1, 1]) {
+      for (const d of [-2, 3]) p.push(`<path d="M${nx + s * 13} ${ny + 3 + d} l${s * 15} ${d * 1.4 - 1}" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/>`);
+    }
+  }
+  p.push(mouth(sp, nx, ny, o.mouth ?? "w"));
+  if (o.helmet) {
+    p.push(`<path d="M${24 + f * 0.3} ${hy - 4} q40 -62 80 0 z" fill="${o.helmet}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`);
+    p.push(`<path d="M${30 + f * 0.3} ${hy - 9} q34 -14 68 0" fill="none" stroke="#fff" stroke-width="3" opacity=".6"/>`);
+    p.push(ellipse(64 + f * 0.3, hy - 28, 4, 2.2, "#fff", `opacity=".8"`));
+  }
+  return p.join("");
+}
+
+function pet(sp, o, id) {
+  const p = [];
+  const sitting = !!o.sitting;
+  const by = (sitting ? 100 : 95) + (o.bodyDy ?? 0);
+  const g = [];
+  // Tail (cat) behind everything.
+  if (sp.tail && o.tail !== false) {
+    const sw = o.tail ?? 0;
+    const d = `M84 ${by + 10} q24 -2 22 -24 q-1 -10 7 -15`;
+    g.push(`<g transform="rotate(${sw} 84 ${by + 10})"><path d="${d}" fill="none" stroke="${INK}" stroke-width="12.5" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${sp.tail}" stroke-width="8" stroke-linecap="round"/><path d="M104 ${by - 12} l4 -3 M106 ${by - 4} l5 -1" stroke="${sp.stripes}" stroke-width="3" stroke-linecap="round"/></g>`);
+  }
+  // Feet
+  const legSpec =
+    o.legs === "none" ? [] : Array.isArray(o.legs) ? o.legs : sitting ? [[42, 114, -18], [86, 114, 18]] : [[50, 117, 0], [78, 117, 0]];
+  let feetSvg = feet(sp, legSpec, sitting && !Array.isArray(o.legs));
+  if (o.hang) {
+    // Legs dangling from the hips, swinging by the given angles.
+    feetSvg = o.hang
+      .map((a, i) => {
+        const hx = i ? 76 : 52, hy = by + 8;
+        const rad = (a * Math.PI) / 180;
+        const fx = hx + Math.sin(rad) * 20, fy = hy + Math.cos(rad) * 20;
+        return capsule(hx, hy, fx, fy, 12, sp.limb, sp.limbLine) + ellipse(fx, fy + 2, 8.5, 7, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.2"`) + ellipse(fx, fy + 4, 4, 2.6, "#ffb3c6");
+      })
+      .join("");
+  }
+  if (!sitting || o.hang) g.push(feetSvg);
+  // Body
+  g.push(ellipse(64, by, sitting ? 29 : 26.5, sitting ? 21 : 22.5, `url(#fur${id})`, `stroke="${INK}" stroke-width="2.6"`));
+  g.push(ellipse(64, by + 4, 15, 12.5, sp.belly));
+  if (sp.band) g.push(`<path d="M${38} ${by - 12} q26 -12 52 0 q-2 8 -6 10 q-20 -8 -40 0 q-4 -2 -6 -10z" fill="${sp.limb}"/>`);
+  if (sitting && !o.hang) g.push(feetSvg);
+  // Arms: capsules from the shoulders to the paws. Overhead poses go behind
+  // the head (only the paws show in front) so they never cover the face.
+  const sh = [[45, by - 10], [83, by - 10]];
+  const arms = o.arms ?? [[37, by + 6], [91, by + 6]];
+  const armSvg = arms.filter(([x]) => x != null).map(([x, y], i) => capsule(sh[i][0], sh[i][1], x, y, 12, sp.limb, sp.limbLine));
+  const paws = arms.filter(([x]) => x != null).map(([x, y]) => ellipse(x, y, 7.5, 7, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.4"`));
+  if (o.armsBehind) g.push(...armSvg);
+  // Head, then anything held in front of it but behind the paws.
+  g.push(head(sp, o, id));
+  if (o.held) g.push(o.held);
+  if (o.armsBehind) g.push(...paws);
+  else g.push(...armSvg);
+  if (o.front) g.push(o.front);
+
+  const rot = o.rot ?? 0;
+  const tx = o.dx ?? 0, ty = o.dy ?? 0, s = o.scale ?? 1;
+  if (o.shadow !== 0) {
+    const k = o.shadow ?? 1;
+    p.push(ellipse(64 + tx, 124, 30 * k * s, 4 * k, "#000", `opacity=".14"`));
+  }
+  p.push(`<g transform="translate(${tx} ${ty}) scale(${s}) rotate(${rot} 64 ${sitting ? 118 : 122})">${g.join("")}</g>`);
+  return p.join("");
+}
+
+/** Seen from behind, for climbing: c = cycle phase in radians. */
+function petBack(sp, c, id, o = {}) {
+  const up = (Math.sin(c) + 1) / 2; // 1: left paw high
+  const sway = Math.sin(c) * 2.5;
+  const lift = -Math.abs(Math.cos(c)) * 2.5;
+  const g = [];
+  const by = 92;
+  // Legs push alternately (opposite to the arms).
+  const lfy = 112 - (1 - up) * 12, rfy = 112 - up * 12;
+  g.push(capsule(52, by + 12, 46, lfy, 13, sp.limb, sp.limbLine), capsule(76, by + 12, 82, rfy, 13, sp.limb, sp.limbLine));
+  g.push(ellipse(45, lfy + 3, 9, 6.5, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.2"`), ellipse(83, rfy + 3, 9, 6.5, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.2"`));
+  if (sp.tail) {
+    const d = `M64 ${by + 18} q-2 14 10 18 q8 2 8 -6`;
+    g.push(`<path d="${d}" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${sp.tail}" stroke-width="7.5" stroke-linecap="round"/>`);
+  }
+  // Back
+  g.push(ellipse(64, by, 26, 24, `url(#fur${id})`, `stroke="${INK}" stroke-width="2.6"`));
+  if (sp.band) g.push(`<path d="M38 ${by - 14} q26 -14 52 0 q0 10 -4 12 q-22 -9 -44 0 q-4 -2 -4 -12z" fill="${sp.limb}"/>`);
+  if (sp.stripes) {
+    for (const yy of [by - 6, by + 3, by + 12]) g.push(`<path d="M52 ${yy} q12 6 24 0" fill="none" stroke="${sp.stripes}" stroke-width="3.5" stroke-linecap="round"/>`);
+  }
+  // Upper arms, behind the head.
+  {
+    const lpy = 44 - up * 38, rpy = 44 - (1 - up) * 38;
+    g.push(capsule(42, by - 14, 19, lpy + 2, 12, sp.limb, sp.limbLine), capsule(86, by - 14, 109, rpy + 2, 12, sp.limb, sp.limbLine));
+  }
+  // Head from behind
+  if (sp.ears === "round") {
+    g.push(ellipse(33, 24, 13.5, 13, sp.earColor), ellipse(95, 24, 13.5, 13, sp.earColor));
+  } else {
+    g.push(`<path d="M23 34 L30 3 L50 25 Z M105 34 L98 3 L78 25 Z" fill="${sp.earColor}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`);
+  }
+  g.push(ellipse(64, 48, 37, 32, `url(#fur${id})`, `stroke="${INK}" stroke-width="2.6"`));
+  if (sp.stripes) {
+    for (const [x, len] of [[54, 11], [64, 14], [74, 11]]) g.push(`<path d="M${x} 20 v${len}" stroke="${sp.stripes}" stroke-width="4" stroke-linecap="round"/>`);
+  } else {
+    g.push(`<path d="M60 18 q4 -6 8 0" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`); // a tuft
+  }
+  // Arms reaching up beside the head, paws gripping (drawn before the head
+  // above, so they are re-added here only as paws).
+  const lpy = 44 - up * 38, rpy = 44 - (1 - up) * 38;
+  g.push(ellipse(19, lpy, 8.5, 7, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.2"`), ellipse(109, rpy, 8.5, 7, sp.limb, `stroke="${sp.limbLine}" stroke-width="2.2"`));
+  g.push(`<path d="M15 ${lpy - 3} v4 M19 ${lpy - 4} v4 M23 ${lpy - 3} v4 M105 ${rpy - 3} v4 M109 ${rpy - 4} v4 M113 ${rpy - 3} v4" stroke="${sp.limbLine === INK ? "#8a8590" : INK}" stroke-width="1.2" stroke-linecap="round"/>`);
+  if (o.sweat) g.push(`<path d="M104 18 q-4 6 0 9 q4 -3 0 -9z" fill="#7ec8ff"/>`);
+  return `<g transform="translate(${r1(sway)} ${r1(lift)})">${g.join("")}</g>`;
+}
+
+// ----------------------------------------------------------------- props --
+
+const heart = (x, y, s = 1, op = 1) => `<path transform="translate(${r1(x)} ${r1(y)}) scale(${s})" d="M0 -3 c-4 -6 -12 -2 -8 4 l8 8 l8 -8 c4 -6 -4 -10 -8 -4z" fill="#ff5c7a" opacity="${op}"/>`;
+const drop = (x, y, s = 1) => `<path transform="translate(${r1(x)} ${r1(y)}) scale(${s})" d="M0 0 q-4 6 0 9 q4 -3 0 -9z" fill="#7ec8ff"/>`;
+const note = (x, y, ch, rot = 0) => `<g transform="rotate(${rot} ${x} ${y})">${text(x, y, 15, ch, "#6a4cc2")}</g>`;
+const sparkle = (x, y, s = 1) => `<path transform="translate(${r1(x)} ${r1(y)}) scale(${s})" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/>`;
+const zz = (x, y, s) => text(x, y, s, "z", "#5b6b8c");
+
+function food(sp, bite) {
+  if (sp.food === "bamboo") {
+    const top = bite ? 70 : 62;
+    return `<g transform="rotate(-24 64 92)"><rect x="60" y="${top}" width="8.5" height="${108 - top}" rx="3" fill="#8bc34a" stroke="#33691e" stroke-width="1.6"/><path d="M60 82 h8.5 M60 96 h8.5" stroke="#33691e" stroke-width="1.6"/><path d="M68.5 86 q13 -7 18 2 q-11 3 -18 -2z" fill="#7cb342" stroke="#33691e" stroke-width="1.2"/></g>`;
+  }
+  const len = bite ? 20 : 28;
+  return `<g transform="rotate(-18 64 84)"><ellipse cx="${64 + (28 - len) / 2}" cy="84" rx="${len / 2}" ry="6.5" fill="#86bfe3" stroke="${INK}" stroke-width="1.6"/><path d="M${78 - (28 - len) / 2 + (28 - len) / 2} 84 l8 -6 v12 z" fill="#86bfe3" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${57 + (28 - len) / 2}" cy="82" r="1.4" fill="${INK}"/></g>`;
+}
+
+const ball = (x, y) => `${ellipse(x, y, 9.5, 9.5, "#ff7043", `stroke="${INK}" stroke-width="2"`)}<path d="M${x - 9} ${y} q9 6 18 0" fill="none" stroke="#fff" stroke-width="2"/>`;
+
+function book(flip) {
+  return `<g transform="translate(64 92)"><path d="M-22 -10 L0 -6 L22 -10 L22 10 L0 14 L-22 10 Z" fill="#7a5cc9" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M-19 -8 L0 -4 L0 11 L-19 7 Z M19 -8 L0 -4 L0 11 L19 7 Z" fill="#fffaf0" stroke="#bbb" stroke-width="1"/><path d="M-15 -3 l11 2 M-15 1 l11 2 M15 -3 l-11 2 M15 1 l-11 2" stroke="#bbb" stroke-width="1.2"/>${flip ? `<path d="M0 -4 Q8 -18 16 -10 L0 11 Z" fill="#fff" stroke="#bbb" stroke-width="1"/>` : ""}</g>`;
+}
+
+function ladderFlat(y) {
+  const rungs = [];
+  for (let x = 14; x <= 114; x += 12) rungs.push(`M${x} ${y - 6} v12`);
+  return `<path d="M6 ${y - 6} h116 M6 ${y + 6} h116" stroke="#7a4f24" stroke-width="5" stroke-linecap="round"/><path d="M6 ${y - 6} h116 M6 ${y + 6} h116" stroke="#c58b4e" stroke-width="3" stroke-linecap="round"/><path d="${rungs.join(" ")}" stroke="#a8743e" stroke-width="3"/>`;
+}
+
+function umbrella(sway) {
+  const scallop = [];
+  for (let i = 0; i < 6; i++) scallop.push(`q-8.33 -7 -16.67 0`);
+  return `<g transform="rotate(${sway} 64 70)"><path d="M64 26 v-4" stroke="${INK}" stroke-width="3"/><path d="M14 26 Q64 -22 114 26 ${scallop.join(" ")} Z" fill="#ff6b6b" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/><path d="M64 3 Q52 12 47.3 26 M64 3 Q76 12 80.7 26" fill="none" stroke="#fff" stroke-width="4" opacity=".75"/><path d="M64 26 v8" stroke="${INK}" stroke-width="3.2" stroke-linecap="round"/><circle cx="64" cy="2" r="3" fill="${INK}"/></g>`;
+}
+
+function cloud(k, fade) {
+  const puffs = [[64, 70, 26], [40, 78, 18], [88, 78, 18], [52, 56, 17], [78, 56, 17], [64, 92, 18]];
+  return puffs
+    .map(([x, y, r]) => ellipse(64 + (x - 64) * k, 70 + (y - 70) * k, r * k, r * k, "#fff", `stroke="#cfd6e0" stroke-width="2.5" opacity="${fade}"`))
+    .join("") + sparkle(22 + 6 * k, 30, k) + sparkle(106 - 6 * k, 40, k * 0.8) + sparkle(30, 112 - 8 * k, k * 0.7);
+}
+
+function wheel(cx, cy, r, angle, tire = INK, hub = "#bbb") {
+  const spokes = [0, 1, 2, 3].map((i) => {
+    const a = angle + (i * Math.PI) / 4;
+    return `M${r1(cx - Math.cos(a) * (r - 3))} ${r1(cy - Math.sin(a) * (r - 3))} L${r1(cx + Math.cos(a) * (r - 3))} ${r1(cy + Math.sin(a) * (r - 3))}`;
+  });
+  return `${ellipse(cx, cy, r, r, "none", `stroke="${tire}" stroke-width="4"`)}<path d="${spokes.join(" ")}" stroke="${hub}" stroke-width="1.6"/>${ellipse(cx, cy, 3, 3, hub, `stroke="${INK}" stroke-width="1"`)}`;
+}
+
+function puffs(t, x = 8, y = 100) {
+  return [0, 1, 2].map((i) => {
+    const k = (t + i / 3) % 1;
+    return ellipse(x - k * 10, y - k * 6, 3 + k * 5, 3 + k * 5, "#d6d9de", `opacity="${r1(0.85 - k * 0.8)}"`);
+  }).join("");
+}
+
+const speedLines = (t) => [0, 1, 2].map((i) => `<path d="M${r1(2 + ((t * 20 + i * 9) % 18))} ${78 + i * 12} h14" stroke="#b9c3d1" stroke-width="2.5" stroke-linecap="round"/>`).join("");
+
+// ------------------------------------------------------------ animations --
+
+const cyc = (n, f) => Array.from({ length: n }, (_, i) => f((i / n) * TAU, i));
+const walkFeet = (t, lift = 5, stride = 8) => [
+  [50 + stride * Math.sin(t), 117 - lift * Math.max(0, Math.sin(t)), 0],
+  [78 - stride * Math.sin(t), 117 - lift * Math.max(0, -Math.sin(t)), 0],
+];
+
+const FRAMES = {
+  idle: {
     fps: 6,
     frames: [
-      { fx: 4, legs: "walkA", dy: -1, tailSwing: -6 },
-      { fx: 4, legs: "stand" },
-      { fx: 4, legs: "walkB", dy: -1, tailSwing: 6 },
-      { fx: 4, legs: "stand" },
+      {}, {}, { headDy: 1, bodyDy: 0.5 }, { headDy: 1, bodyDy: 0.5, ears: [-8, 0] },
+      { headDy: 1, bodyDy: 0.5 }, { eyes: "closed" }, {}, { look: [-1.6, 0], face: -1 },
     ],
   },
+  walk: {
+    fps: 10,
+    frames: cyc(8, (t) => ({
+      face: 4,
+      look: [1.5, 0],
+      dy: -Math.abs(Math.sin(t)) * 2.5,
+      legs: walkFeet(t),
+      arms: [[37 - 5 * Math.sin(t), 100], [91 + 5 * Math.sin(t), 100]],
+      tail: Math.sin(t) * 8,
+    })),
+  },
   sit: {
-    fps: 2,
+    fps: 3,
     frames: [
-      { sitting: true, legs: "sit", arms: "rest" },
-      { sitting: true, legs: "sit", arms: "rest", tailSwing: 8 },
-      { sitting: true, legs: "sit", arms: "rest", eyes: "closed" },
+      { sitting: true, arms: [[36, 106], [92, 106]] },
+      { sitting: true, arms: [[36, 106], [92, 106]], headDy: 1, tail: 10 },
+      { sitting: true, arms: [[36, 106], [92, 106]], eyes: "closed" },
+      { sitting: true, arms: [[36, 106], [92, 106]], tail: -6 },
     ],
   },
   sleep: {
-    fps: 1.5,
-    frames: [
-      { sitting: true, legs: "sit", arms: "rest", eyes: "closed", mouth: "flat", extras: ["zzz1"] },
-      { sitting: true, legs: "sit", arms: "rest", eyes: "closed", mouth: "flat", extras: ["zzz2"], dy: 1 },
-    ],
+    fps: 2,
+    frames: [3, 5, 7, 4].map((b, i) => ({
+      sitting: true,
+      arms: [[36, 106], [92, 106]],
+      eyes: "closed",
+      mouth: "small",
+      headDy: 3 + (i % 2),
+      front: `${ellipse(72, 66, b, b, "#bfe6ff", `opacity=".7" stroke="#8fc9ee" stroke-width="1.2"`)}${zz(98, 26 - i * 3, 11 + i)}${zz(108, 14 - i * 2, 8)}`,
+    })),
   },
   happy: {
-    fps: 6,
-    frames: [
-      { eyes: "happy", mouth: "open", arms: "up", dy: -6, extras: ["heart"], tailSwing: -10 },
-      { eyes: "happy", mouth: "open", arms: "up", dy: -2, extras: ["heart"], tailSwing: 10 },
-      { eyes: "happy", mouth: "open", arms: "down" },
-      { eyes: "happy", mouth: "smile", arms: "down" },
-    ],
+    fps: 9,
+    frames: [0, -4, -9, -9, -4, 0].map((h, i) => ({
+      dy: h,
+      eyes: "happy",
+      mouth: "open",
+      arms: i < 4 ? [[28, 60], [100, 60]] : [[34, 92], [94, 92]],
+      legs: h < -2 ? [[52, 114, -10], [76, 114, 10]] : undefined,
+      shadow: 1 + h / 30,
+      tail: -h * 1.5,
+      front: heart(110, 16 - i * 2, 1, 1 - i * 0.12),
+    })),
   },
   sad: {
-    fps: 2,
-    frames: [
-      { eyes: "sad", mouth: "frown", arms: "down", extras: ["tear1"], tailSwing: 20 },
-      { eyes: "sad", mouth: "frown", arms: "down", extras: ["tear2"], dy: 1, tailSwing: 20 },
-    ],
+    fps: 3,
+    frames: [0, 1, 2, 3].map((i) => ({
+      eyes: "sad",
+      mouth: "frown",
+      ears: [-14, 14],
+      look: [0, 1.5],
+      arms: [[40, 104], [88, 104]],
+      headDy: 2,
+      tail: 25,
+      front: drop(42, 64 + i * 4, 1),
+    })),
   },
   bored: {
-    fps: 1.5,
+    fps: 2,
     frames: [
-      { sitting: true, legs: "sit", arms: "rest", eyes: "half", mouth: "flat", extras: ["dots"] },
-      { sitting: true, legs: "sit", arms: "rest", eyes: "half", mouth: "flat", dy: 1, tailSwing: 8 },
+      { sitting: true, eyes: "half", mouth: "flat", arms: [[36, 106], [92, 106]], front: text(100, 18, 16, "…", "#777") },
+      { sitting: true, eyes: "half", mouth: "flat", arms: [[36, 106], [92, 106]], headDy: 1 },
+      { sitting: true, eyes: "closed", mouth: "yawn", arms: [[40, 70], [80, 108]], headDy: -1 },
+      { sitting: true, eyes: "half", mouth: "flat", arms: [[36, 106], [92, 106]], tail: 8 },
     ],
   },
   surprised: {
-    fps: 4,
-    frames: [
-      { eyes: "wide", mouth: "o", arms: "up", extras: ["sweat"], tailSwing: -25 },
-      { eyes: "wide", mouth: "o", arms: "up", dy: -2, extras: ["sweat"], tailSwing: -25 },
-    ],
+    fps: 6,
+    frames: [0, -5, -2].map((h) => ({
+      dy: h,
+      eyes: "wide",
+      mouth: "o",
+      arms: [[26, 62], [102, 62]],
+      ears: [-6, 6],
+      tail: -30,
+      front: drop(104, 26, 1.1) + text(12, 26, 18, "!", "#ff6b6b"),
+    })),
   },
   drag: {
-    fps: 4,
-    frames: [
-      { eyes: "wide", mouth: "o", arms: "dangleA", legs: "dangle", shadow: false, tailSwing: 30 },
-      { eyes: "wide", mouth: "o", arms: "dangleB", legs: "dangle", shadow: false, dy: 1, tailSwing: 20 },
-    ],
+    fps: 5,
+    frames: cyc(4, (t) => ({
+      eyes: "squint",
+      mouth: "o",
+      arms: [[34, 54], [94, 54]],
+      legs: [[50 + 4 * Math.sin(t), 119, 12 * Math.sin(t)], [78 + 4 * Math.sin(t), 119, 12 * Math.sin(t)]],
+      shadow: 0,
+      tail: 30 * Math.sin(t),
+    })),
   },
   alert: {
-    fps: 4,
-    frames: [
-      { eyes: "wide", mouth: "open", arms: "waveL", extras: ["bang"] },
-      { eyes: "wide", mouth: "open", arms: "waveR", extras: ["bang"], dy: -2 },
-    ],
+    fps: 6,
+    frames: cyc(4, (t, i) => ({
+      eyes: "wide",
+      mouth: "open",
+      dy: i % 2 ? -2 : 0,
+      arms: [[26, 58 + 10 * Math.sin(t)], [91, 100]],
+      front: `${ellipse(110, 20, 12, 12, "#ffcc33", `stroke="${INK}" stroke-width="2"`)}${text(106, 27, 18, "!")}`,
+    })),
   },
   eat: {
-    fps: 4,
-    frames: [
-      { sitting: true, legs: "sit", arms: "hold", eyes: "happy", mouth: "o", extras: ["food1"] },
-      { sitting: true, legs: "sit", arms: "hold", eyes: "closed", mouth: "chew", extras: ["food2"], dy: 1 },
-      { sitting: true, legs: "sit", arms: "hold", eyes: "happy", mouth: "chew", extras: ["food2", "crumbs"] },
-      { sitting: true, legs: "sit", arms: "hold", eyes: "closed", mouth: "chew", extras: ["food2", "crumbs"], dy: 1 },
-    ],
+    fps: 6,
+    frames: cyc(6, (t, i) => ({
+      sitting: true,
+      eyes: i % 3 === 2 ? "closed" : "happy",
+      mouth: i % 2 ? "chew" : "o",
+      arms: [[56, 90], [72, 90]],
+      headDy: i % 2,
+      held: null,
+      bite: i >= 2,
+      crumbs: i >= 3,
+    })),
   },
   play: {
-    fps: 6,
+    fps: 8,
     frames: [
-      { eyes: "happy", mouth: "open", arms: "waveR", extras: ["ball1"], tailSwing: -10 },
-      { eyes: "happy", mouth: "open", arms: "up", dy: -5, extras: ["ball2"], tailSwing: 10 },
-      { eyes: "wide", mouth: "open", arms: "up", dy: -3, extras: ["ball2"] },
-      { eyes: "happy", mouth: "smile", arms: "down", extras: ["ball3"] },
+      { eyes: "happy", mouth: "open", arms: [[34, 92], [104, 62]], ball: [108, 46] },
+      { eyes: "happy", mouth: "open", dy: -5, arms: [[28, 60], [100, 60]], ball: [104, 16], legs: [[52, 114, -10], [76, 114, 10]] },
+      { eyes: "wide", mouth: "open", dy: -3, arms: [[28, 60], [100, 60]], ball: [96, 12] },
+      { eyes: "happy", mouth: "w", arms: [[34, 92], [100, 80]], ball: [104, 50] },
+      { eyes: "happy", mouth: "open", arms: [[34, 92], [104, 70]], ball: [108, 96] },
+      { eyes: "happy", mouth: "w", arms: [[37, 100], [91, 100]], ball: [112, 112] },
     ],
   },
   sweat: {
-    fps: 3,
-    frames: [
-      { eyes: "half", mouth: "wavy", arms: "fan", extras: ["flush", "sweat2", "steam1"] },
-      { eyes: "half", mouth: "wavy", arms: "down", dy: 1, extras: ["flush", "sweat2", "steam2"] },
-    ],
+    fps: 4,
+    frames: cyc(4, (t, i) => ({
+      eyes: "half",
+      mouth: "wavy",
+      blush: "hot",
+      arms: [[37, 100], [100 + 4 * Math.sin(t * 2), 44]],
+      front: drop(102, 34 + i * 3, 1) + drop(24, 44 + ((i + 2) % 4) * 3, 0.9) +
+        `<path d="M${40 + i} 8 q-4 -4 0 -8 M${86 - i} 8 q4 -4 0 -8" fill="none" stroke="#c9c9c9" stroke-width="2.5" stroke-linecap="round"/>`,
+    })),
   },
-  climb: {
-    fps: 5,
-    frames: [
-      { arms: "climbL", legs: "climbA", mouth: "flat", shadow: false },
-      { arms: "climbR", legs: "climbB", mouth: "o", shadow: false, dy: -2 },
-      { arms: "climbL", legs: "climbA", mouth: "flat", shadow: false, extras: ["sweat"] },
-      { arms: "climbR", legs: "climbB", mouth: "o", shadow: false, dy: -2, extras: ["sweat"] },
-    ],
+  hungry: {
+    fps: 3,
+    frames: [0, 1, 2, 3].map((i) => ({
+      eyes: "half",
+      mouth: i % 2 ? "o" : "small",
+      arms: [[56, 104], [72, 104]],
+      headDy: 1,
+      front:
+        `<path d="M${50 + (i % 2) * 2} 98 q3 -3 6 0 q3 3 6 0 M${66 - (i % 2) * 2} 104 q3 -3 6 0 q3 3 6 0" fill="none" stroke="${INK}" stroke-width="1.6" opacity=".55"/>` +
+        `${ellipse(98, 22, 2, 2, "#ddd")}${ellipse(104, 15, 3, 3, "#ddd")}${ellipse(114, 8, 11, 7, "#f3f3f3", `stroke="#ccc"`)}` +
+        drop(70, 74 + i, 0.6),
+    })),
   },
   jump: {
-    fps: 4,
+    fps: 6,
     frames: [
-      { arms: "up", legs: "tuck", eyes: "happy", mouth: "open", shadow: false, dy: -2, tailSwing: -15 },
-      { arms: "up", legs: "tuck", eyes: "wide", mouth: "o", shadow: false, tailSwing: 15 },
+      { eyes: "closed", mouth: "open", arms: [[28, 56], [100, 56]], legs: [[52, 110, -20], [76, 110, 20]], shadow: 0.5, tail: -20 },
+      { eyes: "happy", mouth: "open", arms: [[24, 62], [104, 62]], legs: [[50, 112, -14], [78, 112, 14]], shadow: 0.4, tail: 20 },
+      { eyes: "wide", mouth: "o", arms: [[26, 70], [102, 70]], legs: [[50, 116, -6], [78, 116, 6]], shadow: 0.6 },
     ],
   },
   perch: {
-    // Sits on a window's top edge: the seat is at y ≈ 108, legs hang below.
-    fps: 2,
-    frames: [
-      { sitting: true, legs: "hangA", arms: "rest", dy: -12, shadow: false },
-      { sitting: true, legs: "hangB", arms: "rest", dy: -12, shadow: false, tailSwing: 10 },
-      { sitting: true, legs: "hangA", arms: "rest", dy: -12, shadow: false },
-      { sitting: true, legs: "hangB", arms: "rest", dy: -12, shadow: false, eyes: "closed" },
-    ],
+    fps: 4,
+    // The seat is at y ≈ 108; legs hang below it, over the window's edge.
+    frames: cyc(6, (t, i) => ({
+      sitting: true,
+      bodyDy: -12,
+      headDy: -12,
+      hang: [18 * Math.sin(t), -18 * Math.sin(t + 1)],
+      arms: [[34, 100], [94, 100]],
+      look: [2 * Math.sin(t / 2), 0],
+      eyes: i === 4 ? "closed" : "open",
+      shadow: 0,
+      tail: 12 * Math.sin(t),
+    })),
   },
-  hungry: {
+  carry: {
+    fps: 10,
+    frames: cyc(8, (t) => ({
+      face: 3,
+      dy: -Math.abs(Math.sin(t)) * 2,
+      legs: walkFeet(t, 4, 7),
+      arms: [[34, 10], [94, 10]],
+      armsBehind: true,
+      eyes: "open",
+      mouth: "grit",
+      ladder: true,
+      tail: Math.sin(t) * 8,
+    })),
+  },
+  float: {
+    fps: 3,
+    frames: cyc(4, (t) => ({
+      dy: 22,
+      scale: 0.8,
+      dx: 12.8,
+      eyes: "happy",
+      mouth: "w",
+      arms: [[56, 10], [72, 10]],
+      armsBehind: true,
+      legs: [[50 + 3 * Math.sin(t), 120, 14 * Math.sin(t)], [78 + 3 * Math.sin(t), 120, 14 * Math.sin(t)]],
+      shadow: 0,
+      umbrella: 4 * Math.sin(t),
+    })),
+  },
+  poof: { fps: 8, frames: [0.5, 0.85, 1, 0.8].map((k, i) => ({ poof: [k, i === 3 ? 0.6 : 1] })) },
+  rideBike: { fps: 10, frames: cyc(4, (t) => ({ vehicle: "bike", t })) },
+  rideMoto: { fps: 12, frames: cyc(4, (t) => ({ vehicle: "moto", t })) },
+  rideCar: { fps: 10, frames: cyc(4, (t) => ({ vehicle: "car", t })) },
+  rideSkate: { fps: 8, frames: cyc(4, (t) => ({ vehicle: "skate", t })) },
+  dance: {
+    fps: 8,
+    frames: cyc(8, (t, i) => ({
+      rot: 7 * Math.sin(t),
+      dy: -3 * Math.abs(Math.sin(t * 2)),
+      eyes: i % 4 === 3 ? "star" : "happy",
+      mouth: "open",
+      arms: Math.sin(t) > 0 ? [[26, 52], [92, 100]] : [[36, 100], [102, 52]],
+      legs: [[48 - 3 * Math.sin(t), 117 - 4 * Math.max(0, Math.sin(t)), -10 * Math.sin(t)], [80 - 3 * Math.sin(t), 117 - 4 * Math.max(0, -Math.sin(t)), -10 * Math.sin(t)]],
+      tail: 20 * Math.sin(t),
+      front: note(12 + (i % 4) * 2, 34 - (i % 4) * 5, "♪", -10) + note(104 - (i % 3) * 2, 26 - (i % 3) * 4, "♫", 10),
+    })),
+  },
+  read: {
     fps: 2,
-    frames: [
-      { eyes: "droopy", mouth: "o", arms: "rest", extras: ["rumble1", "thought"] },
-      { eyes: "droopy", mouth: "flat", arms: "rest", dy: 1, extras: ["rumble2", "thought"] },
-    ],
+    frames: [0, 1, 2, 3].map((i) => ({
+      sitting: true,
+      eyes: i === 2 ? "closed" : "down",
+      mouth: i === 3 ? "small" : "w",
+      glasses: true,
+      arms: [[48, 98], [80, 98]],
+      headDy: 2,
+      book: i === 3,
+    })),
+  },
+  climb: {
+    fps: 7,
+    frames: cyc(6, (t, i) => ({ back: t, sweat: i >= 4 })),
   },
 };
+
+function vehicle(sp, kind, t, id) {
+  const ang = -t * 2; // wheel spin
+  const p = [];
+  if (kind === "bike") {
+    // Pedals turn around the bottom bracket.
+    const bb = [60, 104];
+    const ped = [0, Math.PI].map((o) => [bb[0] + 9 * Math.cos(t + o), bb[1] + 9 * Math.sin(t + o)]);
+    const s = 0.68, tx = 16, ty = -2;
+    const toPet = ([x, y]) => [(x - tx) / s, (y - ty) / s];
+    const hips = [[tx + 52 * s, ty + 108 * s], [tx + 72 * s, ty + 108 * s]];
+    p.push(speedLines(t / TAU));
+    p.push(wheel(30, 104, 18, ang), wheel(100, 104, 18, ang));
+    p.push(`<path d="M30 104 L60 104 L54 76 Z M54 78 L90 78 L60 104 M90 78 L100 104 M88 70 L90 78" fill="none" stroke="#3f9ad8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`);
+    p.push(`<path d="M84 68 h12" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>`, ellipse(52, 73, 9, 3.5, INK));
+    p.push(capsule(hips[1][0], hips[1][1], ped[1][0], ped[1][1], 9, sp.limb, sp.limbLine));
+    p.push(pet(sp, { scale: s, dx: tx, dy: ty, face: 5, look: [2, 0], eyes: "happy", mouth: "open", legs: "none", arms: [toPet([90, 68]), toPet([95, 68])], armsBehind: true, shadow: 0, tail: 15 }, id));
+    p.push(capsule(hips[0][0], hips[0][1], ped[0][0], ped[0][1], 9, sp.limb, sp.limbLine));
+    p.push(ellipse(ped[0][0], ped[0][1], 6, 3, "#555"), ellipse(ped[1][0], ped[1][1], 6, 3, "#555"));
+  } else if (kind === "moto") {
+    const s = 0.66, tx = 16, ty = -4;
+    const toPet = ([x, y]) => [(x - tx) / s, (y - ty) / s];
+    p.push(puffs(t / TAU, 14, 100));
+    p.push(wheel(32, 106, 16, ang, INK, "#999"), wheel(100, 106, 16, ang, INK, "#999"));
+    p.push(`<path d="M20 96 h20" stroke="#888" stroke-width="5" stroke-linecap="round"/>`);
+    p.push(`<path d="M30 92 Q34 78 52 80 L86 76 Q100 76 104 90 L96 94 L64 98 Q46 100 30 92 Z" fill="#ef5350" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/>`);
+    p.push(ellipse(70, 79, 16, 7, "#e53935", `stroke="${INK}" stroke-width="2"`), ellipse(48, 80, 13, 4, INK));
+    p.push(`<path d="M96 76 L102 66 M96 66 h10" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>`, ellipse(106, 82, 5, 5, "#ffe066", `stroke="${INK}" stroke-width="1.5"`));
+    p.push(pet(sp, { scale: s, dx: tx, dy: ty, face: 6, look: [2, 0], eyes: "open", mouth: "open", legs: "none", arms: [toPet([98, 68]), toPet([102, 67])], armsBehind: true, shadow: 0, helmet: "#ffcc33", tail: 25 + 5 * Math.sin(t * 2) }, id));
+    p.push(capsule(tx + 70 * s, ty + 108 * s, 70, 98, 9, sp.limb, sp.limbLine), ellipse(72, 99, 7, 4, sp.limb, `stroke="${sp.limbLine}" stroke-width="2"`));
+  } else if (kind === "car") {
+    const s = 0.62, tx = 14, ty = -6 + Math.sin(t * 2) * 1.2;
+    const toPet = ([x, y]) => [(x - tx) / s, (y - ty) / s];
+    const wave = Math.sin(t) > 0;
+    p.push(puffs(t / TAU, 8, 104));
+    p.push(pet(sp, { scale: s, dx: tx, dy: ty, face: 5, look: [2, 0], eyes: wave ? "happy" : "open", mouth: "open", legs: "none", arms: [wave ? toPet([26, 26]) : toPet([60, 70]), toPet([78, 66])], armsBehind: true, shadow: 0, tail: false }, id));
+    p.push(`<path d="M8 100 Q6 74 22 70 L96 68 Q118 70 122 92 Q123 104 112 106 L16 106 Q8 106 8 100 Z" fill="#5ab0ff" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`);
+    p.push(`<path d="M12 92 L120 90" stroke="#3d8fd9" stroke-width="5"/>`, ellipse(116, 82, 4, 3.5, "#ffe066", `stroke="${INK}" stroke-width="1.4"`));
+    p.push(`<path d="M78 68 L90 52 L96 52 L94 68" fill="#d8f0ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round" opacity=".9"/>`);
+    p.push(ellipse(80, 66, 6, 2.5, INK));
+    p.push(wheel(34, 106, 12, ang, INK, "#ccc"), wheel(98, 106, 12, ang, INK, "#ccc"));
+  } else if (kind === "skate") {
+    const tilt = 4 * Math.sin(t);
+    p.push(speedLines(t / TAU));
+    p.push(`<g transform="rotate(${r1(tilt)} 64 116)">`);
+    p.push(pet(sp, { scale: 0.9, dx: 6.4, dy: 0, face: 3, eyes: "happy", mouth: "w", legs: [[46, 117, -10], [84, 117, 10]], arms: [[14, 82 + 6 * Math.sin(t)], [114, 82 - 6 * Math.sin(t)]], shadow: 0, tail: 10 * Math.sin(t) }, id));
+    p.push(`<rect x="18" y="113" width="92" height="7" rx="3.5" fill="#ff8a3d" stroke="${INK}" stroke-width="2.2"/>`);
+    p.push(ellipse(34, 123, 4.5, 4.5, "#888", `stroke="${INK}" stroke-width="1.5"`), ellipse(94, 123, 4.5, 4.5, "#888", `stroke="${INK}" stroke-width="1.5"`), `</g>`);
+  }
+  return p.join("");
+}
+
+function frame(sp, o, id) {
+  const body = [];
+  if (o.poof) {
+    body.push(cloud(o.poof[0], o.poof[1]));
+  } else if (o.vehicle) {
+    body.push(vehicle(sp, o.vehicle, o.t, id));
+  } else if (o.back != null) {
+    body.push(petBack(sp, o.back, id, o));
+  } else {
+    const extra = { ...o };
+    if (o.bite != null) extra.held = food(sp, o.bite);
+    if (o.crumbs) extra.front = `${ellipse(84, 68, 1.6, 1.6, "#33691e")}${ellipse(88, 74, 1.3, 1.3, "#33691e")}`;
+    if (o.ball) extra.front = (extra.front ?? "") + ball(...o.ball);
+    if (o.book != null) extra.front = (extra.front ?? "") + book(o.book);
+    if (o.ladder) extra.held = ladderFlat(8);
+    if (o.umbrella != null) body.push(umbrella(o.umbrella));
+    body.push(pet(sp, extra, id));
+  }
+  return `${svgOpen(sp, id)}\n  ${body.join("\n  ")}\n</svg>\n`;
+}
 
 for (const [id, sp] of Object.entries(SPECIES)) {
   const out = join(PETS, id);
@@ -385,15 +704,17 @@ for (const [id, sp] of Object.entries(SPECIES)) {
     facing: "right",
     animations: {},
   };
-  for (const [name, { fps, frames }] of Object.entries(ANIMATIONS)) {
+  let n = 0;
+  for (const [name, { fps, frames }] of Object.entries(FRAMES)) {
     manifest.animations[name] = { fps, frames: [] };
     frames.forEach((opts, i) => {
       const file = `${name}-${i}.svg`;
-      writeFileSync(join(out, file), pet(sp, opts));
+      // Unique gradient ids per frame keep inline SVGs from clashing.
+      writeFileSync(join(out, file), frame(sp, opts, `${id}${name}${i}`));
       manifest.animations[name].frames.push(file);
+      n++;
     });
   }
   writeFileSync(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-  const n = Object.values(manifest.animations).reduce((sum, a) => sum + a.frames.length, 0);
   console.log(`${id}: wrote ${n} frames`);
 }

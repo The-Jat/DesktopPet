@@ -32,10 +32,22 @@ pub enum Anim {
     Jump,
     /// Sitting on a window's top edge, legs dangling over it.
     Perch,
+    /// Walking with a ladder held overhead.
+    Carry,
+    /// Drifting down under an umbrella.
+    Float,
+    /// A puff of smoke (things appearing or vanishing).
+    Poof,
+    RideBike,
+    RideMoto,
+    RideCar,
+    RideSkate,
+    Dance,
+    Read,
 }
 
 impl Anim {
-    pub const ALL: [Anim; 17] = [
+    pub const ALL: [Anim; 26] = [
         Anim::Idle,
         Anim::Walk,
         Anim::Sit,
@@ -53,6 +65,15 @@ impl Anim {
         Anim::Climb,
         Anim::Jump,
         Anim::Perch,
+        Anim::Carry,
+        Anim::Float,
+        Anim::Poof,
+        Anim::RideBike,
+        Anim::RideMoto,
+        Anim::RideCar,
+        Anim::RideSkate,
+        Anim::Dance,
+        Anim::Read,
     ];
 
     pub fn key(self) -> &'static str {
@@ -74,6 +95,15 @@ impl Anim {
             Anim::Climb => "climb",
             Anim::Jump => "jump",
             Anim::Perch => "perch",
+            Anim::Carry => "carry",
+            Anim::Float => "float",
+            Anim::Poof => "poof",
+            Anim::RideBike => "rideBike",
+            Anim::RideMoto => "rideMoto",
+            Anim::RideCar => "rideCar",
+            Anim::RideSkate => "rideSkate",
+            Anim::Dance => "dance",
+            Anim::Read => "read",
         }
     }
 
@@ -89,7 +119,11 @@ impl Anim {
             // Arms up and legs hanging: close enough to clinging on.
             Anim::Climb => Some(Anim::Drag),
             Anim::Jump => Some(Anim::Happy),
-            Anim::Perch => Some(Anim::Sit),
+            Anim::Perch | Anim::Read => Some(Anim::Sit),
+            Anim::Carry | Anim::RideBike | Anim::RideMoto | Anim::RideCar | Anim::RideSkate => Some(Anim::Walk),
+            Anim::Float => Some(Anim::Drag),
+            Anim::Poof => Some(Anim::Surprised),
+            Anim::Dance => Some(Anim::Happy),
         }
     }
 }
@@ -130,6 +164,56 @@ pub struct WindowRect {
     pub walk_right: f64,
 }
 
+/// A ladder the pet has set up against a window, in screen pixels.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ladder {
+    /// Centre line.
+    pub x: f64,
+    pub top: f64,
+    pub bottom: f64,
+    /// The window's position when the ladder went up; if it moves, the
+    /// ladder falls over.
+    anchor: (f64, f64),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vehicle {
+    Bike,
+    Moto,
+    Car,
+    Skate,
+}
+
+impl Vehicle {
+    const ALL: [Vehicle; 4] = [Vehicle::Bike, Vehicle::Moto, Vehicle::Car, Vehicle::Skate];
+
+    /// Speed relative to walking.
+    fn speed(self) -> f64 {
+        match self {
+            Vehicle::Bike => 2.4,
+            Vehicle::Moto => 3.6,
+            Vehicle::Car => 4.2,
+            Vehicle::Skate => 2.0,
+        }
+    }
+
+    fn anim(self) -> Anim {
+        match self {
+            Vehicle::Bike => Anim::RideBike,
+            Vehicle::Moto => Anim::RideMoto,
+            Vehicle::Car => Anim::RideCar,
+            Vehicle::Skate => Anim::RideSkate,
+        }
+    }
+}
+
+/// Something asked for from outside (the menu), done at the next chance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Force {
+    Climb,
+    Fun,
+}
+
 /// What the pet is standing on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
@@ -153,10 +237,18 @@ enum Activity {
     Falling {
         vy: f64,
     },
-    /// Going up the side of a window.
+    /// Going up the side of a window, or a ladder against it.
     Climb {
         id: u64,
-        side: Side,
+        via: Via,
+    },
+    /// Drifting down under an umbrella.
+    Float {
+        vx: f64,
+    },
+    Ride {
+        vehicle: Vehicle,
+        left: f64,
     },
     /// A ballistic hop from one place to another.
     Jump {
@@ -168,6 +260,12 @@ enum Activity {
     },
     /// Sitting on a window's edge with legs dangling.
     Perch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Via {
+    Wall(Side),
+    Ladder,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -186,10 +284,36 @@ enum Landing {
 /// One step of a multi-step outing (walk over, jump, climb...).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Step {
-    Walk { x: f64 },
-    Jump { x: f64, y: f64, land: Landing },
-    Climb { id: u64, side: Side },
+    Walk {
+        x: f64,
+    },
+    Jump {
+        x: f64,
+        y: f64,
+        land: Landing,
+    },
+    Climb {
+        id: u64,
+        via: Via,
+    },
     Perch,
+    /// Pull a ladder out of thin air (at the screen edge).
+    Fetch,
+    PlaceLadder {
+        id: u64,
+    },
+    Float {
+        dir: f64,
+    },
+    Poof,
+    Ride {
+        vehicle: Vehicle,
+        secs: f64,
+    },
+    Act {
+        anim: Anim,
+        secs: f64,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -216,6 +340,8 @@ pub struct Inputs<'a> {
     pub windows: &'a [WindowRect],
     /// How many climbing trips to start per hour; 0 = never.
     pub climbs_per_hour: f64,
+    /// How many fun things (rides, dancing, reading) per hour; 0 = never.
+    pub fun_per_hour: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -236,6 +362,14 @@ pub struct Pet {
     climb_timer: Option<f64>,
     /// Seconds left on the current window before heading back down.
     visit_timer: f64,
+    fun_timer: Option<f64>,
+    /// Holding a ladder.
+    carrying: bool,
+    ladder: Option<Ladder>,
+    climb_phase: f64,
+    force: Option<Force>,
+    /// A requested climb found nothing reachable.
+    climb_failed: bool,
 }
 
 const GRAVITY: f64 = 2400.0;
@@ -247,6 +381,9 @@ const MAX_JUMP_ACROSS: f64 = 4.0;
 const FEET: f64 = 0.04;
 /// How far a perching pet sits below the edge (its legs hang over it).
 const PERCH_DROP: f64 = 0.12;
+/// Hand-over-hand pulls per second while climbing.
+const CLIMB_CADENCE: f64 = 1.15;
+const TAU: f64 = std::f64::consts::TAU;
 
 impl Pet {
     pub fn new(x: f64, y: f64) -> Self {
@@ -263,11 +400,18 @@ impl Pet {
             plan: VecDeque::new(),
             climb_timer: None,
             visit_timer: 0.0,
+            fun_timer: None,
+            carrying: false,
+            ladder: None,
+            climb_phase: 0.0,
+            force: None,
+            climb_failed: false,
         }
     }
 
     pub fn anim(&self) -> Anim {
         match self.activity {
+            Activity::Idle | Activity::WalkTo { .. } if self.carrying => Anim::Carry,
             Activity::Idle => match self.feeling {
                 _ if self.overheated => Anim::Sweat,
                 Feeling::Sad => Anim::Sad,
@@ -286,6 +430,8 @@ impl Pet {
             Activity::Alert => Anim::Alert,
             Activity::Dragged | Activity::Falling { .. } => Anim::Drag,
             Activity::Climb { .. } => Anim::Climb,
+            Activity::Float { .. } => Anim::Float,
+            Activity::Ride { vehicle, .. } => vehicle.anim(),
             Activity::Jump { .. } => Anim::Jump,
             Activity::Perch => Anim::Perch,
         }
@@ -311,7 +457,11 @@ impl Pet {
     fn is_busy_moving(&self) -> bool {
         matches!(
             self.activity,
-            Activity::Dragged | Activity::Falling { .. } | Activity::Climb { .. } | Activity::Jump { .. }
+            Activity::Dragged
+                | Activity::Falling { .. }
+                | Activity::Climb { .. }
+                | Activity::Jump { .. }
+                | Activity::Float { .. }
         )
     }
 
@@ -321,9 +471,45 @@ impl Pet {
         self.react(anim, 1.5);
     }
 
+    /// The ladder standing against a window, if any.
+    pub fn ladder(&self) -> Option<Ladder> {
+        self.ladder
+    }
+
+    /// Climb a window at the next chance (from the menu).
+    pub fn climb_now(&mut self) {
+        self.force = Some(Force::Climb);
+        self.climb_failed = false;
+        self.wake_for_request();
+    }
+
+    /// Do something fun at the next chance (from the menu).
+    pub fn fun_now(&mut self) {
+        self.force = Some(Force::Fun);
+        self.wake_for_request();
+    }
+
+    fn wake_for_request(&mut self) {
+        if !self.is_busy_moving() && self.surface == Surface::Ground {
+            self.abort_plan();
+            self.activity = Activity::Idle;
+            self.timer = 0.0;
+        }
+    }
+
+    /// True once after a requested climb found no window to use.
+    pub fn take_climb_failed(&mut self) -> bool {
+        std::mem::take(&mut self.climb_failed)
+    }
+
+    fn abort_plan(&mut self) {
+        self.plan.clear();
+        self.carrying = false;
+    }
+
     pub fn react(&mut self, anim: Anim, secs: f64) {
         if !self.is_busy_moving() {
-            self.plan.clear();
+            self.abort_plan();
             self.activity = Activity::React(anim);
             self.timer = secs;
         }
@@ -331,7 +517,8 @@ impl Pet {
 
     pub fn start_drag(&mut self) {
         self.activity = Activity::Dragged;
-        self.plan.clear();
+        self.abort_plan();
+        self.ladder = None;
         self.surface = Surface::Ground;
         self.ride = None;
     }
@@ -355,7 +542,8 @@ impl Pet {
         self.y = y;
         self.surface = Surface::Ground;
         self.ride = None;
-        self.plan.clear();
+        self.abort_plan();
+        self.ladder = None;
         if !self.is_dragged() {
             self.activity = Activity::Idle;
             self.timer = 1.0;
@@ -421,22 +609,63 @@ impl Pet {
                 }
                 return;
             }
-            Activity::Climb { id, side } => {
-                let Some(w) = find(inp.windows, id) else {
+            Activity::Climb { id, via } => {
+                let Some(w) = find(inp.windows, id).copied() else {
+                    self.ladder = None;
                     self.fall();
                     return;
                 };
-                self.x = wall_x(w, side, sw);
-                self.facing = if side == Side::Left { Facing::Right } else { Facing::Left };
-                self.y -= (inp.speed * 0.6).max(15.0) * inp.dt;
+                match via {
+                    Via::Wall(side) => {
+                        self.x = wall_x(&w, side, sw);
+                        self.facing = if side == Side::Left { Facing::Right } else { Facing::Left };
+                    }
+                    Via::Ladder => match self.ladder {
+                        Some(l) if (l.anchor.0 - w.left).abs() < 2.0 && (l.anchor.1 - w.top).abs() < 2.0 => {
+                            self.x = l.x - sw / 2.0;
+                        }
+                        // The window moved: the ladder topples.
+                        _ => {
+                            self.ladder = None;
+                            self.fall();
+                            return;
+                        }
+                    },
+                }
+                // Hand over hand: quick pulls, short pauses.
+                self.climb_phase += inp.dt * CLIMB_CADENCE;
+                let pull = (self.climb_phase * TAU).sin().max(0.0);
+                self.y -= (inp.speed * 1.5).max(45.0) * (0.12 + 1.7 * pull) * inp.dt;
                 // Pull up once the head is over the top.
                 if self.y <= w.top - sh * 0.8 {
-                    self.y = standing_y(w, sh);
-                    self.x = (if side == Side::Left { w.walk_left } else { w.walk_right - sw })
-                        .clamp(w.walk_left, (w.walk_right - sw).max(w.walk_left));
+                    self.y = standing_y(&w, sh);
+                    let x = match via {
+                        Via::Wall(Side::Left) => w.walk_left,
+                        Via::Wall(Side::Right) => w.walk_right - sw,
+                        Via::Ladder => self.x,
+                    };
+                    self.x = x.clamp(w.walk_left, (w.walk_right - sw).max(w.walk_left));
+                    // Pull the ladder up after itself.
+                    self.ladder = None;
                     self.arrive(Surface::Window(id), &inp, rng);
                     self.activity = Activity::React(Anim::Happy);
                     self.timer = 1.0;
+                }
+                return;
+            }
+            Activity::Float { vx } => {
+                let next = self.y + (sh * 0.9).max(50.0) * inp.dt;
+                let g = inp.bounds;
+                self.x = (self.x + vx * inp.dt).clamp(g.left, g.right.max(g.left));
+                // Only things below where it started: not the window it stepped off.
+                match self.landing_between(self.y + 1.0, next, &inp) {
+                    Some((surface, y)) => {
+                        self.y = y;
+                        self.arrive(surface, &inp, rng);
+                        self.activity = Activity::React(Anim::Happy);
+                        self.timer = 0.8;
+                    }
+                    None => self.y = next,
                 }
                 return;
             }
@@ -468,7 +697,7 @@ impl Pet {
 
         if inp.alert {
             if !self.is_reacting() {
-                self.plan.clear();
+                self.abort_plan();
                 self.activity = Activity::Alert;
             }
         } else if self.activity == Activity::Alert {
@@ -499,16 +728,41 @@ impl Pet {
             }
         }
 
+        if let Activity::Ride { vehicle, left } = self.activity {
+            let dir = if self.facing == Facing::Right { 1.0 } else { -1.0 };
+            self.x += dir * inp.speed.max(20.0) * vehicle.speed() * inp.dt;
+            if self.x <= b.left {
+                self.x = b.left;
+                self.facing = Facing::Right;
+            } else if self.x >= b.right {
+                self.x = b.right;
+                self.facing = Facing::Left;
+            }
+            let left = left - inp.dt;
+            if left <= 0.0 {
+                self.activity = Activity::Idle;
+                self.timer = 0.0;
+            } else {
+                self.activity = Activity::Ride { vehicle, left };
+            }
+        }
+
         // Wake up as soon as the user is back, if not actually tired.
         if self.is_sleeping() && !inp.user_away && inp.feeling != Feeling::Sleepy {
             self.timer = self.timer.min(0.0);
         }
 
         // Climbing trips are counted down while on the ground.
-        if inp.climbs_per_hour > 0.0 && inp.gravity && self.surface == Surface::Ground {
-            let interval = 3600.0 / inp.climbs_per_hour;
-            let t = self.climb_timer.get_or_insert_with(|| interval * (0.3 + rng.f64() * 0.7));
-            *t -= inp.dt;
+        if inp.gravity && self.surface == Surface::Ground {
+            // The first one comes within a couple of minutes, then at the set rate.
+            if inp.climbs_per_hour > 0.0 {
+                let first = (3600.0 / inp.climbs_per_hour * (0.2 + rng.f64() * 0.3)).min(60.0 + rng.f64() * 60.0);
+                *self.climb_timer.get_or_insert(first) -= inp.dt;
+            }
+            if inp.fun_per_hour > 0.0 {
+                let first = (3600.0 / inp.fun_per_hour * (0.3 + rng.f64() * 0.5)).min(150.0 + rng.f64() * 120.0);
+                *self.fun_timer.get_or_insert(first) -= inp.dt;
+            }
         }
         if self.surface != Surface::Ground {
             self.visit_timer -= inp.dt;
@@ -555,7 +809,7 @@ impl Pet {
     fn fall(&mut self) {
         self.surface = Surface::Ground;
         self.ride = None;
-        self.plan.clear();
+        self.abort_plan();
         self.activity = Activity::Falling { vy: 0.0 };
     }
 
@@ -608,14 +862,63 @@ impl Pet {
                 self.ride = None;
                 self.activity = Activity::Jump { from: (self.x, self.y), to: (x, y), t: 0.0, dur, land };
             }
-            Step::Climb { id, side } => {
-                if find(inp.windows, id).is_some() {
-                    self.activity = Activity::Climb { id, side };
+            Step::Climb { id, via } => {
+                let ladder_ok = via != Via::Ladder || self.ladder.is_some();
+                if find(inp.windows, id).is_some() && ladder_ok {
+                    self.climb_phase = 0.0;
+                    self.activity = Activity::Climb { id, via };
                 } else {
-                    self.plan.clear();
-                    self.fall();
+                    self.abort_plan();
+                    self.ladder = None;
+                    self.activity = Activity::Idle;
+                    self.timer = 1.0;
                 }
             }
+            Step::Fetch => {
+                // Rummage at the screen edge... and out comes a ladder.
+                self.carrying = true;
+                self.activity = Activity::React(Anim::Poof);
+                self.timer = 0.6;
+            }
+            Step::PlaceLadder { id } => {
+                self.carrying = false;
+                let (sw, _) = inp.sprite;
+                match find(inp.windows, id) {
+                    Some(w) => {
+                        self.ladder = Some(Ladder {
+                            x: self.x + sw / 2.0,
+                            top: w.top - sh * 0.12,
+                            bottom: inp.bounds.floor + sh,
+                            anchor: (w.left, w.top),
+                        });
+                        self.activity = Activity::Idle;
+                        self.timer = 0.5;
+                    }
+                    None => {
+                        self.abort_plan();
+                        self.activity = Activity::Idle;
+                        self.timer = 1.0;
+                    }
+                }
+            }
+            Step::Float { dir } => {
+                self.surface = Surface::Ground;
+                self.ride = None;
+                self.activity = Activity::Float { vx: dir * (inp.speed * 0.5).max(15.0) };
+            }
+            Step::Poof => {
+                self.activity = Activity::React(Anim::Poof);
+                self.timer = 0.55;
+            }
+            Step::Ride { vehicle, secs } => {
+                self.activity = Activity::Ride { vehicle, left: secs };
+                self.timer = secs + 1.0;
+            }
+            Step::Act { anim, secs } => {
+                self.activity = Activity::React(anim);
+                self.timer = secs;
+            }
+
             Step::Perch => {
                 self.activity = Activity::Perch;
                 self.timer = 10.0 + rng.f64() * 25.0;
@@ -631,13 +934,28 @@ impl Pet {
         }
 
         if self.surface == Surface::Ground {
+            let forced = self.force.take();
             // Time for a climb?
-            if self.climb_timer.is_some_and(|t| t <= 0.0) {
-                self.climb_timer = Some(3600.0 / inp.climbs_per_hour.max(0.01) * (0.5 + rng.f64()));
+            let timed_climb = inp.climbs_per_hour > 0.0 && self.climb_timer.is_some_and(|t| t <= 0.0);
+            if forced == Some(Force::Climb) || timed_climb {
+                if timed_climb {
+                    self.climb_timer = Some(3600.0 / inp.climbs_per_hour * (0.5 + rng.f64()));
+                }
                 if self.plan_climb(inp, rng) {
                     self.next_step(inp, rng);
                     return;
                 }
+                self.climb_failed = forced == Some(Force::Climb);
+            }
+            // Time for something fun?
+            let timed_fun = inp.fun_per_hour > 0.0 && self.fun_timer.is_some_and(|t| t <= 0.0);
+            if (forced == Some(Force::Fun) || timed_fun) && inp.gravity {
+                if timed_fun {
+                    self.fun_timer = Some(3600.0 / inp.fun_per_hour * (0.5 + rng.f64()));
+                }
+                self.plan_fun(rng);
+                self.next_step(inp, rng);
+                return;
             }
             // Sometimes wander over to the mouse pointer.
             if let Some((fx, fy)) = inp.follow {
@@ -713,40 +1031,77 @@ impl Pet {
     }
 
     /// From the ground: walk to a window's side, jump to grab it if needed,
-    /// and climb. False if no window can be reached.
+    /// and climb. Out of reach (or now and then, for fun): fetch a ladder from
+    /// the screen edge and climb that. False if no window can be used at all.
     fn plan_climb(&mut self, inp: &Inputs, rng: &mut Rng) -> bool {
         let (sw, sh) = inp.sprite;
         let ground = inp.bounds;
-        let mut options: Vec<(u64, Side, f64, f64)> = Vec::new();
+        let mid = self.x + sw / 2.0;
+        let mut walls: Vec<(u64, Side, f64, f64)> = Vec::new();
+        let mut ladders: Vec<(u64, f64)> = Vec::new();
         for w in inp.windows {
             if w.walk_right - w.walk_left < sw * 1.2 || standing_y(w, sh) >= ground.floor - sh * 0.5 {
                 continue;
             }
             // Grab the side where the window's bottom is, or as low as possible.
             let grab_y = (w.bottom - sh).min(ground.floor);
-            if ground.floor - grab_y > sh * MAX_JUMP_UP {
-                continue;
-            }
-            for side in [Side::Left, Side::Right] {
-                let x = wall_x(w, side, sw);
-                if x >= ground.left && x <= ground.right {
-                    options.push((w.id, side, x, grab_y));
+            if ground.floor - grab_y <= sh * MAX_JUMP_UP {
+                for side in [Side::Left, Side::Right] {
+                    let x = wall_x(w, side, sw);
+                    if x >= ground.left && x <= ground.right {
+                        walls.push((w.id, side, x, grab_y));
+                    }
                 }
             }
+            // A ladder leaning on the window's front, near where the pet is.
+            let lx = mid.clamp(w.walk_left + sw * 0.6, (w.walk_right - sw * 0.6).max(w.walk_left + sw * 0.6));
+            if lx - sw / 2.0 >= ground.left && lx - sw / 2.0 <= ground.right {
+                ladders.push((w.id, lx));
+            }
         }
-        if options.is_empty() {
+        let here = self.x;
+        let by_distance = |x: f64| (x - here).abs();
+        let use_ladder = !ladders.is_empty() && (walls.is_empty() || rng.u8(0..100) < 25);
+        self.abort_plan();
+        if use_ladder {
+            ladders.sort_by(|a, b| by_distance(a.1).total_cmp(&by_distance(b.1)));
+            let (id, lx) = ladders[rng.usize(..ladders.len().min(2))];
+            let edge = if self.x - ground.left < ground.right - self.x { ground.left } else { ground.right };
+            self.plan.extend([
+                Step::Walk { x: edge },
+                Step::Fetch,
+                Step::Walk { x: lx - sw / 2.0 },
+                Step::PlaceLadder { id },
+                Step::Climb { id, via: Via::Ladder },
+            ]);
+            return true;
+        }
+        if walls.is_empty() {
             return false;
         }
         // Prefer a nearby wall, with some randomness.
-        options.sort_by(|a, b| (a.2 - self.x).abs().total_cmp(&(b.2 - self.x).abs()));
-        let (id, side, x, grab_y) = options[rng.usize(..options.len().min(2))];
-        self.plan.clear();
+        walls.sort_by(|a, b| by_distance(a.2).total_cmp(&by_distance(b.2)));
+        let (id, side, x, grab_y) = walls[rng.usize(..walls.len().min(2))];
         self.plan.push_back(Step::Walk { x });
         if grab_y < ground.floor - 1.0 {
             self.plan.push_back(Step::Jump { x, y: grab_y, land: Landing::Wall });
         }
-        self.plan.push_back(Step::Climb { id, side });
+        self.plan.push_back(Step::Climb { id, via: Via::Wall(side) });
         true
+    }
+
+    /// A ride on something, a dance or a read.
+    fn plan_fun(&mut self, rng: &mut Rng) {
+        self.abort_plan();
+        match rng.u8(0..100) {
+            0..=19 => self.plan.push_back(Step::Act { anim: Anim::Dance, secs: 6.0 + rng.f64() * 5.0 }),
+            20..=34 => self.plan.push_back(Step::Act { anim: Anim::Read, secs: 15.0 + rng.f64() * 20.0 }),
+            _ => {
+                let vehicle = Vehicle::ALL[rng.usize(..Vehicle::ALL.len())];
+                self.facing = if rng.bool() { Facing::Left } else { Facing::Right };
+                self.plan.extend([Step::Poof, Step::Ride { vehicle, secs: 8.0 + rng.f64() * 8.0 }, Step::Poof]);
+            }
+        }
     }
 
     /// Hop to another window whose top is within reach.
@@ -774,7 +1129,7 @@ impl Pet {
             let x = self.x.clamp(to.walk_left, to.walk_right - sw);
             (self.x, x)
         };
-        self.plan.clear();
+        self.abort_plan();
         self.plan.extend([
             Step::Walk { x: take_off },
             Step::Jump { x: land_x, y: standing_y(to, sh), land: Landing::On(Surface::Window(to.id)) },
@@ -797,7 +1152,12 @@ impl Pet {
         } else {
             out
         };
-        self.plan.clear();
+        self.abort_plan();
+        if g.floor - self.y > inp.sprite.1 * MAX_JUMP_UP {
+            // Too high to jump: open an umbrella and drift down.
+            self.plan.extend([Step::Walk { x: edge }, Step::Float { dir: if go_left { -1.0 } else { 1.0 } }]);
+            return;
+        }
         self.plan.extend([
             Step::Walk { x: edge },
             Step::Jump { x: out.clamp(g.left, g.right.max(g.left)), y: g.floor, land: Landing::On(Surface::Ground) },
@@ -867,6 +1227,7 @@ mod tests {
             sprite: SPRITE,
             windows: NONE,
             climbs_per_hour: 0.0,
+            fun_per_hour: 0.0,
         }
     }
 
@@ -1046,28 +1407,132 @@ mod tests {
 
     #[test]
     fn jumps_to_grab_a_window_that_floats_above_the_ground() {
-        let mut rng = Rng::with_seed(12);
-        // Bottom 200 px above the floor: needs a jump (within 2.5 sprite heights).
+        // Bottom 200 px above the floor: a jump reaches (within 2.5 sprite
+        // heights). Now and then it takes a ladder anyway, so try a few runs.
         let windows = [win(1, 600.0, 250.0, 1500.0, B.floor + 128.0 - 200.0)];
         let inp = Inputs { windows: &windows, climbs_per_hour: 3600.0, ..inputs(Feeling::Neutral) };
-        let mut pet = Pet::new(100.0, B.floor);
-        let mut saw_jump = false;
-        assert!(run_until(&mut pet, inp, 120.0, &mut rng, |p| {
-            saw_jump |= p.anim() == Anim::Jump;
-            p.surface() == Surface::Window(1)
-        }));
-        assert!(saw_jump);
+        let mut jumped = 0;
+        for seed in 0..8 {
+            let mut rng = Rng::with_seed(100 + seed);
+            let mut pet = Pet::new(100.0, B.floor);
+            let mut saw_jump = false;
+            assert!(run_until(&mut pet, inp, 300.0, &mut rng, |p| {
+                saw_jump |= p.anim() == Anim::Jump;
+                p.surface() == Surface::Window(1)
+            }));
+            jumped += usize::from(saw_jump);
+        }
+        assert!(jumped >= 4, "jumped in {jumped} of 8 runs");
     }
 
     #[test]
-    fn out_of_reach_windows_are_left_alone() {
+    fn out_of_reach_windows_are_climbed_with_a_ladder() {
         let mut rng = Rng::with_seed(13);
+        // Bottom far above the taskbar: no jump can reach it.
         let windows = [win(1, 600.0, 100.0, 1500.0, 400.0)];
         let inp = Inputs { windows: &windows, climbs_per_hour: 3600.0, ..inputs(Feeling::Neutral) };
-        let mut pet = Pet::new(100.0, B.floor);
-        assert!(!run_until(&mut pet, inp, 60.0, &mut rng, |p| {
-            p.surface() != Surface::Ground || matches!(p.anim(), Anim::Climb | Anim::Jump)
+        let mut pet = Pet::new(900.0, B.floor);
+        let (mut carried, mut ladder_seen) = (false, None);
+        assert!(run_until(&mut pet, inp, 300.0, &mut rng, |p| {
+            carried |= p.anim() == Anim::Carry;
+            if p.anim() == Anim::Climb {
+                ladder_seen = p.ladder().or(ladder_seen);
+            }
+            p.surface() == Surface::Window(1)
         }));
+        assert!(carried, "fetched and carried a ladder");
+        let l = ladder_seen.expect("climbed a ladder");
+        assert!(l.top < 100.0 && l.bottom == B.floor + 128.0, "{l:?}");
+        assert!(pet.ladder().is_none(), "pulled the ladder up");
+    }
+
+    #[test]
+    fn climbing_goes_in_pulls() {
+        let mut rng = Rng::with_seed(19);
+        let windows = [win(1, 400.0, 200.0, 1400.0, 1040.0)];
+        let inp = Inputs { windows: &windows, climbs_per_hour: 3600.0, ..inputs(Feeling::Neutral) };
+        let mut pet = Pet::new(100.0, B.floor);
+        assert!(run_until(&mut pet, inp, 120.0, &mut rng, |p| p.anim() == Anim::Climb));
+        let mut steps = vec![];
+        while pet.anim() == Anim::Climb {
+            let y = pet.y;
+            pet.tick(inp, &mut rng);
+            steps.push(y - pet.y);
+        }
+        let fast = steps.iter().cloned().fold(0.0, f64::max);
+        let slow = steps.iter().cloned().fold(f64::MAX, f64::min);
+        assert!(fast > slow * 5.0, "pulls {fast} vs pauses {slow}");
+    }
+
+    #[test]
+    fn ladder_topples_if_the_window_moves() {
+        let mut rng = Rng::with_seed(20);
+        let mut windows = vec![win(1, 600.0, 100.0, 1500.0, 400.0)];
+        let mut pet = Pet::new(900.0, B.floor);
+        {
+            let inp = Inputs { windows: &windows, climbs_per_hour: 3600.0, ..inputs(Feeling::Neutral) };
+            assert!(run_until(&mut pet, inp, 300.0, &mut rng, |p| p.anim() == Anim::Climb));
+        }
+        windows[0] = win(1, 700.0, 100.0, 1600.0, 400.0);
+        let inp = Inputs { windows: &windows, ..inputs(Feeling::Neutral) };
+        pet.tick(inp, &mut rng);
+        assert!(pet.ladder().is_none());
+        assert!(run_until(&mut pet, inp, 3.0, &mut rng, |p| p.y == B.floor));
+    }
+
+    #[test]
+    fn floats_down_from_high_windows_with_an_umbrella() {
+        let mut rng = Rng::with_seed(21);
+        let windows = [win(1, 600.0, 100.0, 1500.0, 400.0)];
+        let inp = Inputs { windows: &windows, climbs_per_hour: 1.0, ..inputs(Feeling::Neutral) };
+        let mut pet = Pet::new(900.0, B.floor);
+        pet.climb_timer = Some(0.0);
+        assert!(run_until(&mut pet, inp, 300.0, &mut rng, |p| p.surface() == Surface::Window(1)));
+        let mut floated = false;
+        assert!(run_until(&mut pet, inp, 400.0, &mut rng, |p| {
+            floated |= p.anim() == Anim::Float;
+            p.surface() == Surface::Ground && p.y == B.floor
+        }));
+        assert!(floated);
+    }
+
+    #[test]
+    fn rides_something_when_asked() {
+        let mut rng = Rng::with_seed(22);
+        let mut pet = Pet::new(900.0, B.floor);
+        let inp = Inputs { fun_per_hour: 1.0, ..inputs(Feeling::Neutral) };
+        // Fun is random; ask until a ride comes up.
+        let mut rode = None;
+        for _ in 0..20 {
+            pet.fun_now();
+            run_until(&mut pet, inp, 3.0, &mut rng, |p| {
+                if matches!(p.anim(), Anim::RideBike | Anim::RideMoto | Anim::RideCar | Anim::RideSkate) {
+                    rode = Some(p.anim());
+                }
+                rode.is_some()
+            });
+            if rode.is_some() {
+                break;
+            }
+            run(&mut pet, inp, 40.0, &mut rng);
+        }
+        assert!(rode.is_some(), "rode something");
+        // Faster than walking.
+        let x = pet.x;
+        pet.tick(inp, &mut rng);
+        assert!((pet.x - x).abs() > 100.0 * 0.05 * 1.5);
+        // And it ends with a poof.
+        assert!(run_until(&mut pet, inp, 30.0, &mut rng, |p| p.anim() == Anim::Poof));
+    }
+
+    #[test]
+    fn asking_to_climb_with_nothing_to_climb_says_so() {
+        let mut rng = Rng::with_seed(23);
+        let mut pet = Pet::new(900.0, B.floor);
+        pet.climb_now();
+        run(&mut pet, inputs(Feeling::Neutral), 0.2, &mut rng);
+        assert!(pet.take_climb_failed());
+        assert!(!pet.take_climb_failed());
     }
 
     #[test]

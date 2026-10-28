@@ -8,139 +8,261 @@
   "facing": "right",
   "animations": {
     "idle": {
-      "fps": 3,
+      "fps": 6,
       "frames": [
         "idle-0.svg",
         "idle-1.svg",
         "idle-2.svg",
         "idle-3.svg",
         "idle-4.svg",
-        "idle-5.svg"
+        "idle-5.svg",
+        "idle-6.svg",
+        "idle-7.svg"
       ]
     },
     "walk": {
-      "fps": 6,
+      "fps": 10,
       "frames": [
         "walk-0.svg",
         "walk-1.svg",
         "walk-2.svg",
-        "walk-3.svg"
+        "walk-3.svg",
+        "walk-4.svg",
+        "walk-5.svg",
+        "walk-6.svg",
+        "walk-7.svg"
       ]
     },
     "sit": {
-      "fps": 2,
+      "fps": 3,
       "frames": [
         "sit-0.svg",
         "sit-1.svg",
-        "sit-2.svg"
+        "sit-2.svg",
+        "sit-3.svg"
       ]
     },
     "sleep": {
-      "fps": 1.5,
+      "fps": 2,
       "frames": [
         "sleep-0.svg",
-        "sleep-1.svg"
+        "sleep-1.svg",
+        "sleep-2.svg",
+        "sleep-3.svg"
       ]
     },
     "happy": {
-      "fps": 6,
+      "fps": 9,
       "frames": [
         "happy-0.svg",
         "happy-1.svg",
         "happy-2.svg",
-        "happy-3.svg"
+        "happy-3.svg",
+        "happy-4.svg",
+        "happy-5.svg"
       ]
     },
     "sad": {
-      "fps": 2,
+      "fps": 3,
       "frames": [
         "sad-0.svg",
-        "sad-1.svg"
+        "sad-1.svg",
+        "sad-2.svg",
+        "sad-3.svg"
       ]
     },
     "bored": {
-      "fps": 1.5,
+      "fps": 2,
       "frames": [
         "bored-0.svg",
-        "bored-1.svg"
+        "bored-1.svg",
+        "bored-2.svg",
+        "bored-3.svg"
       ]
     },
     "surprised": {
-      "fps": 4,
+      "fps": 6,
       "frames": [
         "surprised-0.svg",
-        "surprised-1.svg"
+        "surprised-1.svg",
+        "surprised-2.svg"
       ]
     },
     "drag": {
-      "fps": 4,
+      "fps": 5,
       "frames": [
         "drag-0.svg",
-        "drag-1.svg"
+        "drag-1.svg",
+        "drag-2.svg",
+        "drag-3.svg"
       ]
     },
     "alert": {
-      "fps": 4,
+      "fps": 6,
       "frames": [
         "alert-0.svg",
-        "alert-1.svg"
+        "alert-1.svg",
+        "alert-2.svg",
+        "alert-3.svg"
       ]
     },
     "eat": {
-      "fps": 4,
+      "fps": 6,
       "frames": [
         "eat-0.svg",
         "eat-1.svg",
         "eat-2.svg",
-        "eat-3.svg"
+        "eat-3.svg",
+        "eat-4.svg",
+        "eat-5.svg"
       ]
     },
     "play": {
-      "fps": 6,
+      "fps": 8,
       "frames": [
         "play-0.svg",
         "play-1.svg",
         "play-2.svg",
-        "play-3.svg"
+        "play-3.svg",
+        "play-4.svg",
+        "play-5.svg"
       ]
     },
     "sweat": {
-      "fps": 3,
+      "fps": 4,
       "frames": [
         "sweat-0.svg",
-        "sweat-1.svg"
+        "sweat-1.svg",
+        "sweat-2.svg",
+        "sweat-3.svg"
       ]
     },
-    "climb": {
-      "fps": 5,
+    "hungry": {
+      "fps": 3,
       "frames": [
-        "climb-0.svg",
-        "climb-1.svg",
-        "climb-2.svg",
-        "climb-3.svg"
+        "hungry-0.svg",
+        "hungry-1.svg",
+        "hungry-2.svg",
+        "hungry-3.svg"
       ]
     },
     "jump": {
-      "fps": 4,
+      "fps": 6,
       "frames": [
         "jump-0.svg",
-        "jump-1.svg"
+        "jump-1.svg",
+        "jump-2.svg"
       ]
     },
     "perch": {
-      "fps": 2,
+      "fps": 4,
       "frames": [
         "perch-0.svg",
         "perch-1.svg",
         "perch-2.svg",
-        "perch-3.svg"
+        "perch-3.svg",
+        "perch-4.svg",
+        "perch-5.svg"
       ]
     },
-    "hungry": {
+    "carry": {
+      "fps": 10,
+      "frames": [
+        "carry-0.svg",
+        "carry-1.svg",
+        "carry-2.svg",
+        "carry-3.svg",
+        "carry-4.svg",
+        "carry-5.svg",
+        "carry-6.svg",
+        "carry-7.svg"
+      ]
+    },
+    "float": {
+      "fps": 3,
+      "frames": [
+        "float-0.svg",
+        "float-1.svg",
+        "float-2.svg",
+        "float-3.svg"
+      ]
+    },
+    "poof": {
+      "fps": 8,
+      "frames": [
+        "poof-0.svg",
+        "poof-1.svg",
+        "poof-2.svg",
+        "poof-3.svg"
+      ]
+    },
+    "rideBike": {
+      "fps": 10,
+      "frames": [
+        "rideBike-0.svg",
+        "rideBike-1.svg",
+        "rideBike-2.svg",
+        "rideBike-3.svg"
+      ]
+    },
+    "rideMoto": {
+      "fps": 12,
+      "frames": [
+        "rideMoto-0.svg",
+        "rideMoto-1.svg",
+        "rideMoto-2.svg",
+        "rideMoto-3.svg"
+      ]
+    },
+    "rideCar": {
+      "fps": 10,
+      "frames": [
+        "rideCar-0.svg",
+        "rideCar-1.svg",
+        "rideCar-2.svg",
+        "rideCar-3.svg"
+      ]
+    },
+    "rideSkate": {
+      "fps": 8,
+      "frames": [
+        "rideSkate-0.svg",
+        "rideSkate-1.svg",
+        "rideSkate-2.svg",
+        "rideSkate-3.svg"
+      ]
+    },
+    "dance": {
+      "fps": 8,
+      "frames": [
+        "dance-0.svg",
+        "dance-1.svg",
+        "dance-2.svg",
+        "dance-3.svg",
+        "dance-4.svg",
+        "dance-5.svg",
+        "dance-6.svg",
+        "dance-7.svg"
+      ]
+    },
+    "read": {
       "fps": 2,
       "frames": [
-        "hungry-0.svg",
-        "hungry-1.svg"
+        "read-0.svg",
+        "read-1.svg",
+        "read-2.svg",
+        "read-3.svg"
+      ]
+    },
+    "climb": {
+      "fps": 7,
+      "frames": [
+        "climb-0.svg",
+        "climb-1.svg",
+        "climb-2.svg",
+        "climb-3.svg",
+        "climb-4.svg",
+        "climb-5.svg"
       ]
     }
   }

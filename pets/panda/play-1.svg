@@ -1,21 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <ellipse cx="64" cy="123" rx="28" ry="4" fill="#000" opacity=".15"/>
-  <ellipse cx="48" cy="109" rx="10" ry="8" fill="#2b2b2b"  transform="rotate(0 48 109)"/>
-  <ellipse cx="80" cy="109" rx="10" ry="8" fill="#2b2b2b"  transform="rotate(0 80 109)"/>
-  <ellipse cx="64" cy="85" rx="29" ry="25" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
-  <ellipse cx="64" cy="89" rx="15" ry="13" fill="#f3f3f3"/>
-  <circle cx="36" cy="19" r="12" fill="#2b2b2b"/>
-  <circle cx="92" cy="19" r="12" fill="#2b2b2b"/>
-  <circle cx="64" cy="45" r="34" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
-  <ellipse cx="50" cy="47" rx="9" ry="11" fill="#2b2b2b" transform="rotate(25 50 47)"/>
-  <ellipse cx="78" cy="47" rx="9" ry="11" fill="#2b2b2b" transform="rotate(-25 78 47)"/>
-  <path d="M47 48 q4 -6 8 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
-  <path d="M73 48 q4 -6 8 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
-  <ellipse cx="64" cy="58" rx="4.5" ry="3.2" fill="#2b2b2b"/>
-  <path d="M57 63 q7 11 14 0 z" fill="#e8576b" stroke="#2b2b2b" stroke-width="2" stroke-linecap="round"/>
-  <ellipse cx="40" cy="59" rx="5" ry="5" fill="#ffb3c1" opacity=".75"/>
-  <ellipse cx="88" cy="59" rx="5" ry="5" fill="#ffb3c1" opacity=".75"/>
-  <ellipse cx="32" cy="67" rx="8" ry="13" fill="#2b2b2b"  transform="rotate(-35 32 67)"/>
-  <ellipse cx="96" cy="67" rx="8" ry="13" fill="#2b2b2b"  transform="rotate(35 96 67)"/>
-  <circle cx="108" cy="33" r="9" fill="#ff7043" stroke="#2b2b2b" stroke-width="2"/><path d="M99 33 q9 -6 18 0" fill="none" stroke="#fff" stroke-width="2"/>
+  <defs>
+    <radialGradient id="furpandaplay1" cx="42%" cy="32%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset="0.72" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e6ee"/></radialGradient>
+  </defs>
+  <ellipse cx="64" cy="124" rx="30" ry="4" fill="#000" opacity=".14"/><g transform="translate(0 -5) scale(1) rotate(0 64 122)"><ellipse cx="52" cy="114" rx="11" ry="7.5" fill="#2d2a2e" stroke="#2d2a2e" stroke-width="2.4" transform="rotate(-10 52 114)"/><ellipse cx="76" cy="114" rx="11" ry="7.5" fill="#2d2a2e" stroke="#2d2a2e" stroke-width="2.4" transform="rotate(10 76 114)"/><ellipse cx="64" cy="95" rx="26.5" ry="22.5" fill="url(#furpandaplay1)" stroke="#2d2a2e" stroke-width="2.6"/><ellipse cx="64" cy="99" rx="15" ry="12.5" fill="#f6f6fa" /><path d="M38 83 q26 -12 52 0 q-2 8 -6 10 q-20 -8 -40 0 q-4 -2 -6 -10z" fill="#2d2a2e"/><g transform="rotate(0 38 30)"><ellipse cx="33" cy="22" rx="13.5" ry="13" fill="#2d2a2e" /><ellipse cx="35" cy="24" rx="6.5" ry="6.5" fill="#57515c" /></g><g transform="rotate(0 90 30)"><ellipse cx="95" cy="22" rx="13.5" ry="13" fill="#2d2a2e" /><ellipse cx="93" cy="24" rx="6.5" ry="6.5" fill="#57515c" /></g><ellipse cx="64" cy="50" rx="38.5" ry="34" fill="url(#furpandaplay1)" stroke="#2d2a2e" stroke-width="2.6"/><ellipse cx="47" cy="53" rx="11" ry="13.5" fill="#2d2a2e" transform="rotate(28 47 53)"/><ellipse cx="81" cy="53" rx="11" ry="13.5" fill="#2d2a2e" transform="rotate(-28 81 53)"/><path d="M42.5 54 q5.5 -7 11 0" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M74.5 54 q5.5 -7 11 0" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="37" cy="65" rx="6.2" ry="3.8" fill="#ff9fb6" opacity="0.72"/><ellipse cx="91" cy="65" rx="6.2" ry="3.8" fill="#ff9fb6" opacity="0.72"/><path d="M59 59.5 q5 -2 10 0 q-1 4.5 -5 5 q-4 -0.5 -5 -5z" fill="#2d2a2e"/><ellipse cx="62.5" cy="60.2" rx="1.3" ry="0.8" fill="#fff" opacity=".7"/><path d="M57 66.5 q7 12 14 0 z" fill="#e8576b" stroke="#2d2a2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="64" cy="72" rx="3.6" ry="2.2" fill="#ff9aa8" /><line x1="45" y1="85" x2="28" y2="60" stroke-linecap="round" stroke="#2d2a2e" stroke-width="17"/><line x1="45" y1="85" x2="28" y2="60" stroke-linecap="round" stroke="#2d2a2e" stroke-width="12"/><line x1="83" y1="85" x2="100" y2="60" stroke-linecap="round" stroke="#2d2a2e" stroke-width="17"/><line x1="83" y1="85" x2="100" y2="60" stroke-linecap="round" stroke="#2d2a2e" stroke-width="12"/><ellipse cx="104" cy="16" rx="9.5" ry="9.5" fill="#ff7043" stroke="#2d2a2e" stroke-width="2"/><path d="M95 16 q9 6 18 0" fill="none" stroke="#fff" stroke-width="2"/></g>
 </svg>

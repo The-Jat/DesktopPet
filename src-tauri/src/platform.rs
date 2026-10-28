@@ -20,6 +20,15 @@ impl Rect {
     pub fn width(&self) -> f64 {
         self.right - self.left
     }
+
+    pub fn union(&self, o: &Rect) -> Rect {
+        Rect {
+            left: self.left.min(o.left),
+            top: self.top.min(o.top),
+            right: self.right.max(o.right),
+            bottom: self.bottom.max(o.bottom),
+        }
+    }
 }
 
 /// The window the user is working in.
@@ -195,6 +204,19 @@ mod imp {
         1
     }
 
+    /// Debug log of why a window can't be climbed, once per window and reason.
+    fn skipped(id: u64, reason: &'static str) {
+        static SEEN: Mutex<Vec<(u64, &'static str)>> = Mutex::new(Vec::new());
+        if crate::debug_enabled() {
+            if let Ok(mut seen) = SEEN.lock() {
+                if !seen.contains(&(id, reason)) {
+                    seen.push((id, reason));
+                    eprintln!("[debug] window {id:#x}: not climbable ({reason})");
+                }
+            }
+        }
+    }
+
     /// The windows in `ids` the pet can stand on, with the stretch of their top
     /// edge that is not covered by windows in front and clear of the title-bar
     /// buttons (`caption_margin` px from the right).
@@ -206,11 +228,15 @@ mod imp {
 
         let mut out = Vec::new();
         for &id in ids {
-            let Some(pos) = z.iter().position(|(h, _)| *h as usize as u64 == id) else { continue };
+            let Some(pos) = z.iter().position(|(h, _)| *h as usize as u64 == id) else {
+                skipped(id, "closed, minimised, hidden, on another desktop, or a tool window");
+                continue;
+            };
             let (hwnd, r) = z[pos];
             // SAFETY: valid handle.
             if unsafe { IsZoomed(hwnd) } != 0 {
-                continue; // maximised: no room above it
+                skipped(id, "maximised, no room on top");
+                continue;
             }
             let edge = f64::from(r.top) + 1.0;
             let covers: Vec<(f64, f64)> = z[..pos]
@@ -218,10 +244,14 @@ mod imp {
                 .filter(|(_, c)| f64::from(c.top) <= edge && f64::from(c.bottom) >= edge)
                 .map(|(_, c)| (f64::from(c.left), f64::from(c.right)))
                 .collect();
-            let Some((l, rr)) = largest_uncovered((f64::from(r.left), f64::from(r.right)), &covers) else { continue };
+            let Some((l, rr)) = largest_uncovered((f64::from(r.left), f64::from(r.right)), &covers) else {
+                skipped(id, "top edge covered by other windows");
+                continue;
+            };
             let walk_left = l.max(f64::from(r.left) + 8.0);
             let walk_right = rr.min(f64::from(r.right) - caption_margin);
             if walk_right <= walk_left {
+                skipped(id, "too little uncovered top edge");
                 continue;
             }
             out.push(WindowRect {
@@ -341,8 +371,21 @@ mod imp {
         Foreground::None
     }
 
-    pub fn climbable_windows(_ids: &[u64], _caption_margin: f64) -> Vec<pet_core::behavior::WindowRect> {
-        Vec::new()
+    /// No window list here. For development, `DESKTOPPET_FAKE_WINDOW=left,top,right,bottom`
+    /// pretends such a window is open, so climbing can be tried out.
+    pub fn climbable_windows(_ids: &[u64], caption_margin: f64) -> Vec<pet_core::behavior::WindowRect> {
+        let Ok(spec) = std::env::var("DESKTOPPET_FAKE_WINDOW") else { return Vec::new() };
+        let n: Vec<f64> = spec.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+        let [left, top, right, bottom] = n[..] else { return Vec::new() };
+        vec![pet_core::behavior::WindowRect {
+            id: 1,
+            left,
+            top,
+            right,
+            bottom,
+            walk_left: left + 8.0,
+            walk_right: right - caption_margin,
+        }]
     }
 
     pub fn fullscreen_app() -> bool {

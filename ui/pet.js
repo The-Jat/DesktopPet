@@ -6,6 +6,8 @@ const { listen } = window.__TAURI__.event;
 
 const stage = document.getElementById("stage");
 const sprite = document.getElementById("sprite");
+const spriteImg = document.getElementById("sprite-img");
+const ladder = document.getElementById("ladder");
 const bubble = document.getElementById("bubble");
 const bubbleTitle = document.getElementById("bubble-title");
 const bubbleText = document.getElementById("bubble-text");
@@ -16,6 +18,30 @@ let frame = null;
 let animName = null;
 let frameIndex = 0;
 let frameTimer = null;
+
+// Extra motion layered over the frames (see pet.css), so even a short frame
+// cycle breathes, bobs and wobbles.
+const MOTION = {
+  idle: "breathe",
+  sit: "breathe",
+  sad: "breathe",
+  bored: "breathe",
+  hungry: "breathe",
+  perch: "breathe",
+  read: "breathe",
+  sleep: "sleep",
+  walk: "bob",
+  carry: "bob",
+  climb: "wobble",
+  jump: "stretch",
+  float: "swing",
+  dance: "groove",
+  rideBike: "bob",
+  rideMoto: "rumble",
+  rideCar: "rumble",
+  rideSkate: "rock",
+  sweat: "shiver",
+};
 
 function playAnimation(name) {
   if (!pack || name === animName) return;
@@ -28,7 +54,7 @@ function playAnimation(name) {
 function step() {
   const anim = pack.animations[animName];
   if (!anim) return;
-  sprite.src = anim.frames[frameIndex % anim.frames.length];
+  spriteImg.src = anim.frames[frameIndex % anim.frames.length];
   frameIndex += 1;
   if (anim.frames.length > 1) {
     frameTimer = setTimeout(step, 1000 / anim.fps);
@@ -41,10 +67,21 @@ function applyFrame(f) {
   stage.style.width = `${f.windowWidth}px`;
   stage.style.height = `${f.windowHeight}px`;
   sprite.style.left = `${f.spriteLeft}px`;
+  sprite.style.top = `${f.spriteTop}px`;
   sprite.style.width = `${f.spriteWidth}px`;
   sprite.style.height = `${f.spriteHeight}px`;
   const mirror = pack && pack.facing !== "none" && f.facing !== pack.facing;
-  sprite.classList.toggle("flip", mirror);
+  spriteImg.classList.toggle("flip", mirror);
+  sprite.dataset.motion = MOTION[f.anim] || "";
+  if (f.ladder) {
+    Object.assign(ladder.style, {
+      left: `${f.ladder.left}px`,
+      top: `${f.ladder.top}px`,
+      width: `${f.ladder.width}px`,
+      height: `${f.ladder.height}px`,
+    });
+  }
+  ladder.hidden = !f.ladder;
   playAnimation(f.anim);
   placeBubble();
 }
@@ -61,7 +98,7 @@ function placeBubble() {
   const center = frame.spriteLeft + frame.spriteWidth / 2;
   const left = Math.max(4, Math.min(center - width / 2, frame.windowWidth - width - 4));
   bubble.style.left = `${left}px`;
-  bubble.style.bottom = `${frame.spriteHeight + 4}px`;
+  bubble.style.bottom = `${frame.windowHeight - frame.spriteTop + 4}px`;
 }
 
 function showBubble(b) {

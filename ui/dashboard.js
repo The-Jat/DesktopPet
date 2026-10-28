@@ -392,6 +392,7 @@ function fillSettings(s) {
   const taskbar = s.roamMode === "bottomEdge";
   $('[name="climbWindows"]').disabled = !taskbar;
   $('[name="climbsPerHour"]').disabled = !taskbar || !s.climbWindows;
+  $('[name="funPerHour"]').disabled = !s.funEnabled;
   $("#climb-hint").textContent = taskbar ? "Picks from the windows you used in the last 10 minutes." : "Only while it lives along the taskbar (Where it goes).";
   $("#clip-key").textContent = s.hotkeyClipboardNote || "(no shortcut set)";
   updateOutputs();
@@ -403,7 +404,7 @@ function updateOutputs() {
     out.textContent =
       input.name === "scale"
         ? `${Number(input.value).toFixed(1)}×`
-        : input.name === "climbsPerHour"
+        : input.name === "climbsPerHour" || input.name === "funPerHour"
           ? `${input.value} ${input.value === "1" ? "time" : "times"} an hour`
           : `${input.value} px/s`;
   }

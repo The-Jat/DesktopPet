@@ -32,8 +32,13 @@ Only one copy runs: starting it again opens the running pet's dashboard.
 ## The pet
 
 **Controls**: left-click = pet it; drag = carry it (it falls when dropped);
-right-click = menu (Pet, Feed, Play, Quick add, Save clipboard as note,
-Start/stop focus timer, Open dashboard, Hide pet).
+right-click = menu (Pet, Feed, Play, Climb a window, Do something fun, Quick
+add, Save clipboard as note, Start/stop focus timer, Open dashboard, Hide
+pet).
+
+**Trying things out**: `DESKTOPPET_DEMO=climb` or `=fun` triggers that every
+30 seconds; `DESKTOPPET_DEBUG=1` logs which windows are climbable and why
+others are not.
 
 **Where it goes** (setting):
 - *Along the taskbar* (default): walks on the bottom of the work area.
@@ -44,20 +49,33 @@ Start/stop focus timer, Open dashboard, Hide pet).
 - *Monitor*: stay on a chosen monitor, or wherever it currently is.
 
 **Climbing windows** (taskbar mode, on by default, 1–20 trips an hour,
-default 3):
+default 3; the first one within about 2 minutes of starting):
 - Candidates are the windows you focused in the last 10 minutes (up to 6),
-  plus the one it is standing on. Skipped: minimised, maximised, cloaked
-  (other virtual desktops), tool/overlay windows, the shell and our own.
+  plus the one it is standing on. Skipped: minimised, maximised (no room on
+  top), cloaked (other virtual desktops), tool/overlay windows, the shell and
+  our own.
 - It may stand only on the part of a window's top edge that no window in
   front covers, and keeps 150 px clear of the title-bar buttons.
 - A trip: walk to a window's side → jump to grab it if its bottom is above
-  the taskbar (up to 2.5 sprite heights) → climb → pull up on top. Up there
-  it walks, sits, perches on an end with its legs over the edge, and
-  sometimes jumps to another window within 4 sprite widths (not more than 2
-  heights higher). After 1–3 minutes it jumps back down.
+  the taskbar (up to 2.5 sprite heights) → climb hand over hand (seen from
+  behind, moving in pulls) → pull up on top.
+- **Out of reach** (or now and then, for fun): it walks to the screen edge,
+  pulls out a ladder (poof), carries it back overhead, stands it against the
+  window from the taskbar up, climbs it, and pulls it up after itself. If the
+  window moves meanwhile, the ladder topples and the pet falls.
+- Up there it walks, sits, perches on an end with its legs over the edge,
+  and sometimes jumps to another window within 4 sprite widths (not more
+  than 2 heights higher). After 1–3 minutes it comes down: a jump from low
+  windows, an **umbrella** float from high ones.
 - It rides along when the window is moved, and falls when the window is
   closed, minimised or covered, landing on whatever is below. Dropped from
   a drag, it can land on a window too.
+- Right-click → **Climb a window** does it now, or says why it can't.
+
+**Fun** (on by default, 1–20 an hour, default 4): pops a bicycle, motorbike
+(with a helmet), car or skateboard out of a puff of smoke and rides along
+the taskbar, turning at the ends; or dances; or reads a book with little
+glasses. Right-click → **Do something fun** does one now.
 
 **Reactions**: now and then walks over to the mouse pointer; a fast
 left-right mouse shake startles it; says good morning/afternoon/evening at
@@ -65,7 +83,10 @@ start and "Welcome back!" after you were away; naps when you are idle for
 *N* minutes.
 
 **Animations**: idle, walk, sit, sleep, happy, sad, bored, surprised, drag,
-alert, eat, play, sweat (computer under load), hungry, climb, jump, perch.
+alert, eat, play, sweat (computer under load), hungry, climb, jump, perch,
+carry, float, poof, rideBike, rideMoto, rideCar, rideSkate, dance, read.
+On top of the frames the pet window adds small motions: breathing when
+still, a bob when walking, a rumble on engines, a sway when dancing.
 
 ## Emotions and care
 

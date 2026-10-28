@@ -21,19 +21,86 @@ body {
 
 #sprite {
   position: absolute;
-  bottom: 0;
-  object-fit: contain;
-  object-position: bottom center;
+  z-index: 2;
   cursor: grab;
   touch-action: none;
+  transform-origin: 50% 100%;
 }
 
-#sprite.flip {
+#sprite-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  pointer-events: none;
+}
+
+#sprite-img.flip {
   transform: scaleX(-1);
+}
+
+/* Motion layered over the frames. */
+#sprite[data-motion="breathe"] { animation: breathe 2.6s ease-in-out infinite; }
+#sprite[data-motion="sleep"] { animation: breathe 3.6s ease-in-out infinite; }
+#sprite[data-motion="bob"] { animation: bob 0.4s ease-in-out infinite; }
+#sprite[data-motion="wobble"] { animation: wobble 0.43s ease-in-out infinite alternate; }
+#sprite[data-motion="stretch"] { transform: scale(0.95, 1.06); }
+#sprite[data-motion="swing"] { transform-origin: 50% 0; animation: swing 2s ease-in-out infinite alternate; }
+#sprite[data-motion="groove"] { animation: groove 0.5s ease-in-out infinite alternate; }
+#sprite[data-motion="rumble"] { animation: rumble 0.12s steps(2) infinite; }
+#sprite[data-motion="rock"] { animation: rock 1s ease-in-out infinite alternate; }
+#sprite[data-motion="shiver"] { animation: rumble 0.25s steps(2) infinite; }
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(0.99, 1.025); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes wobble {
+  from { transform: translateX(-1px) rotate(-1deg); }
+  to { transform: translateX(1px) rotate(1deg); }
+}
+@keyframes swing {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(3deg); }
+}
+@keyframes groove {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-3px) rotate(2deg); }
+}
+@keyframes rumble {
+  from { transform: translateY(0); }
+  to { transform: translateY(-1px); }
+}
+@keyframes rock {
+  from { transform: rotate(-1.5deg); }
+  to { transform: rotate(1.5deg); }
+}
+
+/* A wooden ladder: two rails with rungs between them. */
+#ladder {
+  position: absolute;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, #7a4f24 0 2px, #c58b4e 2px 7px, #7a4f24 7px 9px, transparent 9px calc(100% - 9px),
+      #7a4f24 calc(100% - 9px) calc(100% - 7px), #c58b4e calc(100% - 7px) calc(100% - 2px), #7a4f24 calc(100% - 2px)),
+    repeating-linear-gradient(180deg, transparent 0 16px, #7a4f24 16px 17px, #b07a42 17px 21px, #7a4f24 21px 22px, transparent 22px 28px);
+  border-radius: 4px 4px 0 0;
+  filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
+#ladder[hidden] {
+  display: none;
 }
 
 #bubble {
   position: absolute;
+  z-index: 3;
   box-sizing: border-box;
   width: 230px;
   max-height: 138px;

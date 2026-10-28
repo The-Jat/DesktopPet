@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="furcatpoof1" cx="42%" cy="32%" r="75%"><stop offset="0" stop-color="#f9b25c"/><stop offset="0.72" stop-color="#f9b25c"/><stop offset="1" stop-color="#ec9537"/></radialGradient>
+  </defs>
+  <ellipse cx="64" cy="70" rx="22.1" ry="22.1" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><ellipse cx="43.6" cy="76.8" rx="15.3" ry="15.3" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><ellipse cx="84.4" cy="76.8" rx="15.3" ry="15.3" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><ellipse cx="53.8" cy="58.1" rx="14.5" ry="14.5" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><ellipse cx="75.9" cy="58.1" rx="14.5" ry="14.5" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><ellipse cx="64" cy="88.7" rx="15.3" ry="15.3" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="1"/><path transform="translate(27.1 30) scale(0.85)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/><path transform="translate(100.9 40) scale(0.68)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/><path transform="translate(30 105.2) scale(0.595)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/>
+</svg>
