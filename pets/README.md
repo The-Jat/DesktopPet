@@ -46,6 +46,9 @@ Only **`idle`** is required. Anything missing falls back:
 | `play` | playing | `happy` |
 | `sweat` | the computer is under heavy load | `sad` |
 | `hungry` | hungry (care mode) | `sad` |
+| `climb` | climbing up a window's side | `drag` |
+| `jump` | jumping onto, between or off windows | `happy` |
+| `perch` | sitting on a window's top edge, legs hanging over it; drawn with the seat about 15% above the bottom of the frame | `sit` |
 
 ## Built-in packs
 

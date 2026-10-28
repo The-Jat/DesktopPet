@@ -388,6 +388,11 @@ function fillSettings(s) {
     }
   }
   $("#summary-time").value = `${pad(s.dailySummaryHour)}:${pad(s.dailySummaryMinute)}`;
+  // Climbing only happens in the taskbar mode.
+  const taskbar = s.roamMode === "bottomEdge";
+  $('[name="climbWindows"]').disabled = !taskbar;
+  $('[name="climbsPerHour"]').disabled = !taskbar || !s.climbWindows;
+  $("#climb-hint").textContent = taskbar ? "Picks from the windows you used in the last 10 minutes." : "Only while it lives along the taskbar (Where it goes).";
   $("#clip-key").textContent = s.hotkeyClipboardNote || "(no shortcut set)";
   updateOutputs();
 }
@@ -395,7 +400,12 @@ function fillSettings(s) {
 function updateOutputs() {
   for (const out of $$("output[data-for]")) {
     const input = $(`[name="${out.dataset.for}"]`);
-    out.textContent = input.name === "scale" ? `${Number(input.value).toFixed(1)}×` : `${input.value} px/s`;
+    out.textContent =
+      input.name === "scale"
+        ? `${Number(input.value).toFixed(1)}×`
+        : input.name === "climbsPerHour"
+          ? `${input.value} ${input.value === "1" ? "time" : "times"} an hour`
+          : `${input.value} px/s`;
   }
 }
 

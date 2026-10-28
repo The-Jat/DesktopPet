@@ -111,6 +111,31 @@
         "sweat-1.svg"
       ]
     },
+    "climb": {
+      "fps": 5,
+      "frames": [
+        "climb-0.svg",
+        "climb-1.svg",
+        "climb-2.svg",
+        "climb-3.svg"
+      ]
+    },
+    "jump": {
+      "fps": 4,
+      "frames": [
+        "jump-0.svg",
+        "jump-1.svg"
+      ]
+    },
+    "perch": {
+      "fps": 2,
+      "frames": [
+        "perch-0.svg",
+        "perch-1.svg",
+        "perch-2.svg",
+        "perch-3.svg"
+      ]
+    },
     "hungry": {
       "fps": 2,
       "frames": [

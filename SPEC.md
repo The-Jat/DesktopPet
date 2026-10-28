@@ -43,13 +43,29 @@ Start/stop focus timer, Open dashboard, Hide pet).
   Focusing one of our own windows keeps the last perch.
 - *Monitor*: stay on a chosen monitor, or wherever it currently is.
 
+**Climbing windows** (taskbar mode, on by default, 1–20 trips an hour,
+default 3):
+- Candidates are the windows you focused in the last 10 minutes (up to 6),
+  plus the one it is standing on. Skipped: minimised, maximised, cloaked
+  (other virtual desktops), tool/overlay windows, the shell and our own.
+- It may stand only on the part of a window's top edge that no window in
+  front covers, and keeps 150 px clear of the title-bar buttons.
+- A trip: walk to a window's side → jump to grab it if its bottom is above
+  the taskbar (up to 2.5 sprite heights) → climb → pull up on top. Up there
+  it walks, sits, perches on an end with its legs over the edge, and
+  sometimes jumps to another window within 4 sprite widths (not more than 2
+  heights higher). After 1–3 minutes it jumps back down.
+- It rides along when the window is moved, and falls when the window is
+  closed, minimised or covered, landing on whatever is below. Dropped from
+  a drag, it can land on a window too.
+
 **Reactions**: now and then walks over to the mouse pointer; a fast
 left-right mouse shake startles it; says good morning/afternoon/evening at
 start and "Welcome back!" after you were away; naps when you are idle for
 *N* minutes.
 
 **Animations**: idle, walk, sit, sleep, happy, sad, bored, surprised, drag,
-alert, eat, play, sweat (computer under load), hungry.
+alert, eat, play, sweat (computer under load), hungry, climb, jump, perch.
 
 ## Emotions and care
 

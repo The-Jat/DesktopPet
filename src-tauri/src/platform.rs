@@ -29,16 +29,18 @@ pub enum Foreground {
     None,
     /// One of our own windows (keep using the previous one).
     Ours,
-    Window(Rect),
+    /// Its handle (as a stable id) and visible frame.
+    Window(u64, Rect),
 }
 
 #[cfg(windows)]
 mod imp {
     use super::{Foreground, Rect};
+    use pet_core::behavior::{largest_uncovered, WindowRect};
     use pet_core::system::{Battery, Sample};
     use std::sync::Mutex;
-    use windows_sys::Win32::Foundation::{FILETIME, HWND, POINT, RECT};
-    use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+    use windows_sys::Win32::Foundation::{BOOL, FILETIME, HWND, LPARAM, POINT, RECT};
+    use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
     use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
@@ -53,7 +55,9 @@ mod imp {
         SHQueryUserNotificationState, QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN,
     };
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowRect, GetWindowThreadProcessId, IsIconic,
+        EnumWindows, GetClassNameW, GetCursorPos, GetForegroundWindow, GetWindowLongW, GetWindowRect,
+        GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, GWL_EXSTYLE, WS_EX_TOOLWINDOW,
+        WS_EX_TRANSPARENT,
     };
 
     pub fn cursor_pos() -> Option<(f64, f64)> {
@@ -98,32 +102,25 @@ mod imp {
         ok.then(|| rect(info.rcWork))
     }
 
-    pub fn foreground_window() -> Foreground {
-        // SAFETY: no arguments; may return null.
-        let hwnd: HWND = unsafe { GetForegroundWindow() };
-        if hwnd.is_null() {
-            return Foreground::None;
-        }
+    fn is_ours(hwnd: HWND) -> bool {
         let mut pid = 0u32;
         // SAFETY: valid window handle and out pointer.
         unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
         // SAFETY: no arguments.
-        if pid == unsafe { GetCurrentProcessId() } {
-            return Foreground::Ours;
-        }
-        // SAFETY: valid window handle.
-        if unsafe { IsIconic(hwnd) } != 0 {
-            return Foreground::None;
-        }
+        pid == unsafe { GetCurrentProcessId() }
+    }
+
+    fn is_shell(hwnd: HWND) -> bool {
         let mut class = [0u16; 64];
         // SAFETY: buffer and its length match.
         let n = unsafe { GetClassNameW(hwnd, class.as_mut_ptr(), class.len() as i32) };
         let class = String::from_utf16_lossy(&class[..n.max(0) as usize]);
-        if matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd") {
-            return Foreground::None;
-        }
+        matches!(class.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+    }
+
+    /// The visible frame, without the invisible resize borders around it.
+    fn frame(hwnd: HWND) -> Option<RECT> {
         let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-        // The visible frame, without the invisible resize borders around it.
         // SAFETY: `r` is a RECT and the size matches.
         let dwm = unsafe {
             DwmGetWindowAttribute(
@@ -135,9 +132,109 @@ mod imp {
         };
         // SAFETY: valid handle and out pointer.
         if dwm != 0 && unsafe { GetWindowRect(hwnd, &mut r) } == 0 {
+            return None;
+        }
+        Some(r)
+    }
+
+    pub fn foreground_window() -> Foreground {
+        // SAFETY: no arguments; may return null.
+        let hwnd: HWND = unsafe { GetForegroundWindow() };
+        if hwnd.is_null() {
             return Foreground::None;
         }
-        Foreground::Window(rect(r))
+        if is_ours(hwnd) {
+            return Foreground::Ours;
+        }
+        // SAFETY: valid window handle.
+        if unsafe { IsIconic(hwnd) } != 0 || is_shell(hwnd) {
+            return Foreground::None;
+        }
+        match frame(hwnd) {
+            Some(r) => Foreground::Window(hwnd as usize as u64, rect(r)),
+            None => Foreground::None,
+        }
+    }
+
+    /// A window that can be seen: shown, not minimised, not on another
+    /// virtual desktop, not a tool/overlay window, not ours, not the shell.
+    fn is_plain_visible(hwnd: HWND) -> bool {
+        // SAFETY: valid handles from EnumWindows; plain queries.
+        unsafe {
+            if IsWindowVisible(hwnd) == 0 || IsIconic(hwnd) != 0 {
+                return false;
+            }
+            let ex = GetWindowLongW(hwnd, GWL_EXSTYLE) as u32;
+            if ex & (WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT) != 0 {
+                return false;
+            }
+            let mut cloaked: u32 = 0;
+            let hr = DwmGetWindowAttribute(
+                hwnd,
+                DWMWA_CLOAKED as u32,
+                (&mut cloaked as *mut u32).cast(),
+                std::mem::size_of::<u32>() as u32,
+            );
+            if hr == 0 && cloaked != 0 {
+                return false;
+            }
+        }
+        !is_ours(hwnd) && !is_shell(hwnd)
+    }
+
+    unsafe extern "system" fn collect(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        // SAFETY: `lparam` is the Vec passed by `climbable_windows`, alive for the call.
+        let list = unsafe { &mut *(lparam as *mut Vec<(HWND, RECT)>) };
+        if is_plain_visible(hwnd) {
+            if let Some(r) = frame(hwnd) {
+                if r.right > r.left && r.bottom > r.top {
+                    list.push((hwnd, r));
+                }
+            }
+        }
+        1
+    }
+
+    /// The windows in `ids` the pet can stand on, with the stretch of their top
+    /// edge that is not covered by windows in front and clear of the title-bar
+    /// buttons (`caption_margin` px from the right).
+    pub fn climbable_windows(ids: &[u64], caption_margin: f64) -> Vec<WindowRect> {
+        // Top-level windows, front to back.
+        let mut z: Vec<(HWND, RECT)> = Vec::new();
+        // SAFETY: the callback only touches `z` through `lparam` during this call.
+        unsafe { EnumWindows(Some(collect), &mut z as *mut Vec<(HWND, RECT)> as LPARAM) };
+
+        let mut out = Vec::new();
+        for &id in ids {
+            let Some(pos) = z.iter().position(|(h, _)| *h as usize as u64 == id) else { continue };
+            let (hwnd, r) = z[pos];
+            // SAFETY: valid handle.
+            if unsafe { IsZoomed(hwnd) } != 0 {
+                continue; // maximised: no room above it
+            }
+            let edge = f64::from(r.top) + 1.0;
+            let covers: Vec<(f64, f64)> = z[..pos]
+                .iter()
+                .filter(|(_, c)| f64::from(c.top) <= edge && f64::from(c.bottom) >= edge)
+                .map(|(_, c)| (f64::from(c.left), f64::from(c.right)))
+                .collect();
+            let Some((l, rr)) = largest_uncovered((f64::from(r.left), f64::from(r.right)), &covers) else { continue };
+            let walk_left = l.max(f64::from(r.left) + 8.0);
+            let walk_right = rr.min(f64::from(r.right) - caption_margin);
+            if walk_right <= walk_left {
+                continue;
+            }
+            out.push(WindowRect {
+                id,
+                left: r.left.into(),
+                top: r.top.into(),
+                right: r.right.into(),
+                bottom: r.bottom.into(),
+                walk_left,
+                walk_right,
+            });
+        }
+        out
     }
 
     /// A full-screen game or video, or presentation mode.
@@ -242,6 +339,10 @@ mod imp {
 
     pub fn foreground_window() -> Foreground {
         Foreground::None
+    }
+
+    pub fn climbable_windows(_ids: &[u64], _caption_margin: f64) -> Vec<pet_core::behavior::WindowRect> {
+        Vec::new()
     }
 
     pub fn fullscreen_app() -> bool {

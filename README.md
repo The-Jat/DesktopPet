@@ -11,6 +11,7 @@ a speech bubble to remind you of things.
 - **Quick add** from anywhere (`Ctrl+Alt+R`) and **clipboard to note** (`Ctrl+Alt+N`)
 - **Moods and care**: happy, bored, sad, sleepy, hungry; feed it and play with it
 - **Roams** the taskbar, the whole screen, or the top of the window you're using
+- **Climbs your windows**: scales the side, walks and perches on top, jumps between them, rides along when you move them
 - **Computer health**: sweats when the CPU is busy, warns about memory, battery and disk
 - **Breaks and focus**: screen-break nudges, a pomodoro timer, a daily summary
 - **History** with streaks, **categories** and search, **export/import**

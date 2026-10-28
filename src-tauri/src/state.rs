@@ -7,7 +7,7 @@
 
 use crate::platform::{Foreground, Rect};
 use chrono::{NaiveDateTime, Timelike};
-use pet_core::behavior::{Anim, Bounds, Facing, Inputs, Pet};
+use pet_core::behavior::{Anim, Bounds, Facing, Inputs, Pet, Surface, WindowRect};
 use pet_core::history::{HistoryEntry, HistoryKind};
 use pet_core::mood::{Feeling, MoodContext, MoodEvent};
 use pet_core::pack::{self, LoadedPack, Pack};
@@ -41,6 +41,8 @@ pub struct Env {
     /// A fresh system reading, taken `system_dt` seconds after the last one.
     pub system: Option<Sample>,
     pub system_dt: f32,
+    /// Recently used windows the pet may climb (empty when climbing is off).
+    pub windows: Vec<WindowRect>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -337,6 +339,20 @@ impl AppState {
         self.say(line);
     }
 
+    /// Window climbing applies in the default taskbar mode.
+    pub fn climbing(&self) -> bool {
+        let s = &self.data.settings;
+        s.climb_windows && s.roam_mode == RoamMode::BottomEdge
+    }
+
+    /// The window the pet stands on, so it stays climbable while in use.
+    pub fn standing_on(&self) -> Option<u64> {
+        match self.pet.surface() {
+            Surface::Window(id) => Some(id),
+            Surface::Ground => None,
+        }
+    }
+
     // ------------------------------------------------------------ actions --
 
     /// A button in the speech bubble was pressed.
@@ -477,6 +493,9 @@ impl AppState {
             overheated: s.system_monitor_enabled && (self.system.condition.hot || self.system.condition.ram_full),
             speed: f64::from(s.walk_speed) * env.scale_factor,
             follow,
+            sprite: (sw, sh),
+            windows: if self.climbing() { &env.windows } else { &[] },
+            climbs_per_hour: if self.climbing() { f64::from(s.climbs_per_hour) } else { 0.0 },
         };
 
         // Moved to another monitor (by the settings): hop over.
@@ -540,7 +559,7 @@ impl AppState {
             RoamMode::BottomEdge | RoamMode::WholeScreen => bottom,
             RoamMode::ActiveWindow => {
                 match env.foreground {
-                    Foreground::Window(r) => self.perch = Some(r),
+                    Foreground::Window(_, r) => self.perch = Some(r),
                     Foreground::None => self.perch = None,
                     Foreground::Ours => {}
                 }
@@ -934,6 +953,7 @@ mod tests {
             fullscreen: false,
             system: None,
             system_dt: 0.0,
+            windows: vec![],
         }
     }
 
@@ -1072,7 +1092,7 @@ mod tests {
         let mut s = state();
         s.data.settings.roam_mode = RoamMode::ActiveWindow;
         let mut e = env(at(12, 0));
-        e.foreground = Foreground::Window(Rect { left: 300.0, top: 400.0, right: 1200.0, bottom: 900.0 });
+        e.foreground = Foreground::Window(7, Rect { left: 300.0, top: 400.0, right: 1200.0, bottom: 900.0 });
         run(&mut s, &e, 3.0);
         assert_eq!(s.pet.y, 400.0 - 128.0 + 2.0);
         assert!((300.0..=1200.0 - 128.0).contains(&s.pet.x));
@@ -1085,6 +1105,42 @@ mod tests {
         e.foreground = Foreground::None;
         run(&mut s, &e, 2.0);
         assert_eq!(s.pet.y, 1040.0 - 128.0);
+    }
+
+    #[test]
+    fn climbs_recent_windows_only_in_taskbar_mode() {
+        let mut s = state();
+        s.data.settings.climbs_per_hour = 20;
+        let mut e = env(at(12, 0));
+        e.windows = vec![WindowRect {
+            id: 42,
+            left: 400.0,
+            top: 500.0,
+            right: 1400.0,
+            bottom: 1040.0,
+            walk_left: 408.0,
+            walk_right: 1250.0,
+        }];
+        // Fast-forward until it has climbed (20 trips an hour = one every ~3 min).
+        let mut climbed = false;
+        for _ in 0..(15 * 60 * 30) {
+            s.tick(1.0 / 30.0, &e);
+            if s.standing_on() == Some(42) {
+                climbed = true;
+                break;
+            }
+        }
+        assert!(climbed);
+
+        // Other modes ignore the windows: it falls back down.
+        s.data.settings.roam_mode = RoamMode::WholeScreen;
+        assert!(!s.climbing());
+        s.data.settings.roam_mode = RoamMode::BottomEdge;
+        s.data.settings.climb_windows = false;
+        for _ in 0..90 {
+            s.tick(1.0 / 30.0, &e);
+        }
+        assert_eq!(s.standing_on(), None);
     }
 
     #[test]

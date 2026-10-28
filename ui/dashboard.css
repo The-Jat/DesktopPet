@@ -533,3 +533,12 @@ kbd {
 .mood .strong {
   font-weight: 600;
 }
+
+.indent {
+  margin-left: 26px;
+}
+
+input:disabled + output,
+label:has(input:disabled) {
+  opacity: 0.55;
+}

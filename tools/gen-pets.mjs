@@ -47,8 +47,8 @@ const SPECIES = {
 function pet(sp, {
   dy = 0, // whole-body vertical offset (bob / hop)
   fx = 0, // face shift, gives a slight head turn
-  legs = "stand", // stand | walkA | walkB | sit | dangle
-  arms = "down", // down | up | waveL | waveR | rest | dangleA | dangleB | hold | fan
+  legs = "stand", // stand | walkA | walkB | sit | dangle | climbA | climbB | tuck | hangA | hangB
+  arms = "down", // down | up | waveL | waveR | rest | dangleA | dangleB | hold | fan | climbL | climbR
   eyes = "open", // open | closed | happy | sad | wide | half | droopy
   mouth = "smile", // smile | open | frown | o | flat | chew | wavy
   extras = [], // see the switch at the bottom
@@ -80,6 +80,12 @@ function pet(sp, {
     case "walkB": p.push(limb(46, 116 + dy, 10, 7, -10), limb(84, 113 + dy, 10, 8, 15)); break;
     case "sit": p.push(limb(40, 116 + dy, 13, 8, -10), limb(88, 116 + dy, 13, 8, 10)); break;
     case "dangle": p.push(limb(50, 118 + dy, 8, 11, 8), limb(78, 118 + dy, 8, 11, -8)); break;
+    case "climbA": p.push(limb(46, 104 + dy, 9, 8, -40), limb(82, 118 + dy, 9, 8, 10)); break;
+    case "climbB": p.push(limb(46, 118 + dy, 9, 8, -10), limb(82, 104 + dy, 9, 8, 40)); break;
+    case "tuck": p.push(limb(50, 106 + dy, 10, 7, -20), limb(78, 106 + dy, 10, 7, 20)); break;
+    // Perching: legs hang over the edge below the seat, swinging.
+    case "hangA": p.push(limb(50, 116, 7, 11, 14), limb(78, 116, 7, 11, -4)); break;
+    case "hangB": p.push(limb(50, 116, 7, 11, 4), limb(78, 116, 7, 11, -14)); break;
   }
 
   // Body
@@ -99,6 +105,8 @@ function pet(sp, {
     dangleB: [arm(36, by - 22, -10), arm(92, by - 22, 10)],
     hold: [arm(50, by - 8, 45), arm(78, by - 8, -45)],
     fan: [arm(38, by, 20), arm(98, by - 26, 60)],
+    climbL: [arm(34, by - 28, -15), arm(92, by - 8, 40)],
+    climbR: [arm(36, by - 8, -40), arm(94, by - 28, 15)],
   };
   const armsSvg = armSets[arms];
 
@@ -326,6 +334,32 @@ const ANIMATIONS = {
     frames: [
       { eyes: "half", mouth: "wavy", arms: "fan", extras: ["flush", "sweat2", "steam1"] },
       { eyes: "half", mouth: "wavy", arms: "down", dy: 1, extras: ["flush", "sweat2", "steam2"] },
+    ],
+  },
+  climb: {
+    fps: 5,
+    frames: [
+      { arms: "climbL", legs: "climbA", mouth: "flat", shadow: false },
+      { arms: "climbR", legs: "climbB", mouth: "o", shadow: false, dy: -2 },
+      { arms: "climbL", legs: "climbA", mouth: "flat", shadow: false, extras: ["sweat"] },
+      { arms: "climbR", legs: "climbB", mouth: "o", shadow: false, dy: -2, extras: ["sweat"] },
+    ],
+  },
+  jump: {
+    fps: 4,
+    frames: [
+      { arms: "up", legs: "tuck", eyes: "happy", mouth: "open", shadow: false, dy: -2, tailSwing: -15 },
+      { arms: "up", legs: "tuck", eyes: "wide", mouth: "o", shadow: false, tailSwing: 15 },
+    ],
+  },
+  perch: {
+    // Sits on a window's top edge: the seat is at y ≈ 108, legs hang below.
+    fps: 2,
+    frames: [
+      { sitting: true, legs: "hangA", arms: "rest", dy: -12, shadow: false },
+      { sitting: true, legs: "hangB", arms: "rest", dy: -12, shadow: false, tailSwing: 10 },
+      { sitting: true, legs: "hangA", arms: "rest", dy: -12, shadow: false },
+      { sitting: true, legs: "hangB", arms: "rest", dy: -12, shadow: false, eyes: "closed" },
     ],
   },
   hungry: {

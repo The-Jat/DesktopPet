@@ -38,6 +38,12 @@ macro_rules! debug_log {
 
 const FRAME: Duration = Duration::from_millis(33);
 const SYSTEM_SAMPLE_EVERY: Duration = Duration::from_secs(2);
+/// Windows focused within this long count as "in use" for climbing.
+const RECENT_WINDOW: Duration = Duration::from_secs(10 * 60);
+const MAX_RECENT_WINDOWS: usize = 6;
+const WINDOWS_REFRESH: Duration = Duration::from_millis(200);
+/// Keep clear of the minimise/maximise/close buttons (logical px).
+const CAPTION_BUTTONS: f64 = 150.0;
 
 fn main() {
     tauri::Builder::default()
@@ -258,6 +264,10 @@ fn spawn_engine(app: AppHandle) {
         let mut slow =
             SlowEnv { scale_factor: 1.0, monitors: vec![], current: None, pet_visible: true, fullscreen: false };
         let mut applied: Option<WindowPlan> = None;
+        // Recently focused windows, most recent first.
+        let mut recent: Vec<(u64, Instant)> = Vec::new();
+        let mut windows_checked: Option<Instant> = None;
+        let mut windows = Vec::new();
 
         loop {
             std::thread::sleep(FRAME);
@@ -286,10 +296,27 @@ fn spawn_engine(app: AppHandle) {
                 (platform::system_sample(), dt)
             });
 
-            let (px, py, monitor) = {
+            let (px, py, monitor, climbing, standing_on) = {
                 let s = state.lock().unwrap_or_else(|e| e.into_inner());
-                (s.pet.x, s.pet.y, s.data.settings.monitor_index)
+                (s.pet.x, s.pet.y, s.data.settings.monitor_index, s.climbing(), s.standing_on())
             };
+
+            let foreground = platform::foreground_window();
+            if let platform::Foreground::Window(id, _) = foreground {
+                recent.retain(|(w, _)| *w != id);
+                recent.insert(0, (id, Instant::now()));
+            }
+            recent.retain(|(_, t)| t.elapsed() < RECENT_WINDOW);
+            recent.truncate(MAX_RECENT_WINDOWS);
+            if !climbing {
+                windows.clear();
+            } else if windows_checked.is_none_or(|t| t.elapsed() >= WINDOWS_REFRESH) {
+                windows_checked = Some(Instant::now());
+                // The window it is standing on stays usable even if not recent.
+                let mut ids: Vec<u64> = recent.iter().map(|(id, _)| *id).collect();
+                ids.extend(standing_on.filter(|id| !ids.contains(id)));
+                windows = platform::climbable_windows(&ids, CAPTION_BUTTONS * slow.scale_factor);
+            }
             let fallback = Rect { left: 0.0, top: 0.0, right: 1920.0, bottom: 1080.0 };
             let work_area = monitor
                 .and_then(|i| slow.monitors.get(i as usize).copied())
@@ -303,11 +330,12 @@ fn spawn_engine(app: AppHandle) {
                 idle_secs: platform::user_idle_secs(),
                 work_area,
                 scale_factor: slow.scale_factor,
-                foreground: platform::foreground_window(),
+                foreground,
                 pet_visible: slow.pet_visible,
                 fullscreen: slow.fullscreen,
                 system: system.map(|(s, _)| s),
                 system_dt: system.map_or(0.0, |(_, dt)| dt),
+                windows: windows.clone(),
             };
 
             let out = state.lock().unwrap_or_else(|e| e.into_inner()).tick(dt, &env);

@@ -44,6 +44,10 @@ pub struct Settings {
     pub roam_mode: RoamMode,
     /// Monitor index to live on; `None` = whichever it is on now.
     pub monitor_index: Option<u32>,
+    /// Along the taskbar: now and then climb up the windows you have been
+    /// using, walk on top of them and jump between them.
+    pub climb_windows: bool,
+    pub climbs_per_hour: u32,
 
     // ---- reactions (#8) ----
     /// Now and then walk over to the mouse pointer.
@@ -112,6 +116,8 @@ impl Default for Settings {
             quiet_end_hour: 8,
             roam_mode: RoamMode::BottomEdge,
             monitor_index: None,
+            climb_windows: true,
+            climbs_per_hour: 3,
             follow_cursor: true,
             shake_reaction: true,
             greetings_enabled: true,
@@ -163,6 +169,7 @@ impl Settings {
         self.daily_summary_hour %= 24;
         self.daily_summary_minute %= 60;
         self.monitor_index = self.monitor_index.filter(|i| *i < 16);
+        self.climbs_per_hour = self.climbs_per_hour.clamp(1, 20);
         self.hotkey_quick_add = self.hotkey_quick_add.trim().to_owned();
         self.hotkey_clipboard_note = self.hotkey_clipboard_note.trim().to_owned();
         self.pet_name = self.pet_name.trim().chars().take(32).collect();
