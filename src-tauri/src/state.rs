@@ -668,12 +668,14 @@ impl AppState {
         if let Some(l) = ladder {
             area = area.union(&l);
         }
-        let (x, y) = (area.left.floor(), area.top.floor());
+        // Round position and size separately, so the size stays put while the
+        // pet moves by fractions of a pixel.
+        let (x, y) = (area.left.round(), area.top.round());
         let plan = WindowPlan {
             x: x as i32,
             y: y as i32,
-            width: (area.right.ceil() - x) as u32,
-            height: (area.bottom.ceil() - y) as u32,
+            width: (area.right - area.left).round() as u32,
+            height: (area.bottom - area.top).round() as u32,
         };
         if self.last_window != Some(plan) {
             self.last_window = Some(plan);
