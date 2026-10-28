@@ -85,8 +85,12 @@ start and "Welcome back!" after you were away; naps when you are idle for
 **Animations**: idle, walk, sit, sleep, happy, sad, bored, surprised, drag,
 alert, eat, play, sweat (computer under load), hungry, climb, jump, perch,
 carry, float, poof, rideBike, rideMoto, rideCar, rideSkate, dance, read.
-On top of the frames the pet window adds small motions: breathing when
-still, a bob when walking, a rumble on engines, a sway when dancing.
+The frames carry the motion themselves (breathing, squash and stretch,
+ears and head that lag behind the body); the pet window only adds an engine
+rumble. Frames are decoded up front and picked by elapsed time, walking plays
+faster or slower with the walking speed so the feet don't slide, and turning
+around is a quick squeeze rather than a snap. `tools/preview/index.html`
+(written by the generator) plays every animation side by side.
 
 ## Emotions and care
 

@@ -40,45 +40,17 @@ body {
   transform: scaleX(-1);
 }
 
-/* Motion layered over the frames. */
-#sprite[data-motion="breathe"] { animation: breathe 2.6s ease-in-out infinite; }
-#sprite[data-motion="sleep"] { animation: breathe 3.6s ease-in-out infinite; }
-#sprite[data-motion="bob"] { animation: bob 0.4s ease-in-out infinite; }
-#sprite[data-motion="wobble"] { animation: wobble 0.43s ease-in-out infinite alternate; }
-#sprite[data-motion="stretch"] { transform: scale(0.95, 1.06); }
-#sprite[data-motion="swing"] { transform-origin: 50% 0; animation: swing 2s ease-in-out infinite alternate; }
-#sprite[data-motion="groove"] { animation: groove 0.5s ease-in-out infinite alternate; }
-#sprite[data-motion="rumble"] { animation: rumble 0.12s steps(2) infinite; }
-#sprite[data-motion="rock"] { animation: rock 1s ease-in-out infinite alternate; }
-#sprite[data-motion="shiver"] { animation: rumble 0.25s steps(2) infinite; }
+/* Turning around: a quick squeeze through the middle instead of a snap. */
+#sprite-img {
+  transition: transform 0.14s ease-in-out;
+}
 
-@keyframes breathe {
-  0%, 100% { transform: scale(1, 1); }
-  50% { transform: scale(0.99, 1.025); }
-}
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
-@keyframes wobble {
-  from { transform: translateX(-1px) rotate(-1deg); }
-  to { transform: translateX(1px) rotate(1deg); }
-}
-@keyframes swing {
-  from { transform: rotate(-3deg); }
-  to { transform: rotate(3deg); }
-}
-@keyframes groove {
-  from { transform: translateY(0) rotate(-2deg); }
-  to { transform: translateY(-3px) rotate(2deg); }
-}
+/* An engine rumble on top of the riding frames. */
+#sprite[data-motion="rumble"] { animation: rumble 0.12s steps(2) infinite; }
+
 @keyframes rumble {
   from { transform: translateY(0); }
   to { transform: translateY(-1px); }
-}
-@keyframes rock {
-  from { transform: rotate(-1.5deg); }
-  to { transform: rotate(1.5deg); }
 }
 
 /* A wooden ladder: two rails with rungs between them. */

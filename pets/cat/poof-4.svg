@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="fur" cx="40%" cy="30%" r="78%"><stop offset="0" stop-color="#fbb55e"/><stop offset="0.7" stop-color="#fbb55e"/><stop offset="1" stop-color="#ea9238"/></radialGradient>
+    <radialGradient id="pupil" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#6a5c6e"/><stop offset="0.55" stop-color="#2a2129"/><stop offset="1" stop-color="#140f14"/></radialGradient>
+    <radialGradient id="blush"><stop offset="0" stop-color="#ff7f9c" stop-opacity=".85"/><stop offset="1" stop-color="#ff7f9c" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hot"><stop offset="0" stop-color="#ff4d4d" stop-opacity=".9"/><stop offset="1" stop-color="#ff4d4d" stop-opacity="0"/></radialGradient>
+    <radialGradient id="shadow"><stop offset="0" stop-color="#000" stop-opacity=".26"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  </defs>
+  <g transform="translate(64 125) scale(0.9) translate(-64 -125)">
+  <ellipse cx="64" cy="70" rx="18" ry="18" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><ellipse cx="47.3" cy="75.6" rx="12.5" ry="12.5" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><ellipse cx="80.7" cy="75.6" rx="12.5" ry="12.5" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><ellipse cx="55.7" cy="60.3" rx="11.8" ry="11.8" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><ellipse cx="73.7" cy="60.3" rx="11.8" ry="11.8" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><ellipse cx="64" cy="85.3" rx="12.5" ry="12.5" fill="#fff" stroke="#cfd6e0" stroke-width="2.5" opacity="0.6"/><path transform="translate(28.2 30) scale(0.6940000000000001)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/><path transform="translate(99.8 40) scale(0.555)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/><path transform="translate(32 104.4) scale(0.486)" d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5 Z" fill="#ffd84d"/>
+  </g>
+</svg>

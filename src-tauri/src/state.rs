@@ -24,6 +24,9 @@ pub const BUBBLE_W: f64 = 240.0;
 pub const BUBBLE_H: f64 = 150.0;
 /// Pointer movement (logical px) before a press becomes a drag.
 const DRAG_THRESHOLD: f64 = 4.0;
+/// The walking speed (logical px/s at size 1.0) the walk frames are drawn for:
+/// at this speed the planted foot moves exactly with the ground.
+const WALK_SPEED_OF_ART: f64 = 40.0;
 /// How often the mood is written to disk.
 const MOOD_SAVE_SECS: f64 = 60.0;
 
@@ -59,6 +62,9 @@ pub struct FrameView {
     pub sprite_height: f64,
     /// A ladder standing against a window, inside the pet window.
     pub ladder: Option<LadderView>,
+    /// Playback speed of the frames: walking plays faster or slower with the
+    /// walking speed so the feet keep pace with the ground.
+    pub rate: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -526,7 +532,7 @@ impl AppState {
             user_away: env.idle_secs >= u64::from(s.idle_sleep_minutes) * 60,
             alert: self.alerting.is_some(),
             overheated: s.system_monitor_enabled && (self.system.condition.hot || self.system.condition.ram_full),
-            speed: f64::from(s.walk_speed) * env.scale_factor,
+            speed: f64::from(s.walk_speed) * f64::from(s.scale) * env.scale_factor,
             follow,
             sprite: (sw, sh),
             windows: if self.climbing() { &env.windows } else { &[] },
@@ -683,8 +689,9 @@ impl AppState {
         }
 
         let css = |v: f64| (v / sf * 10.0).round() / 10.0;
+        let anim = self.pet.anim();
         let frame = FrameView {
-            anim: self.pet.anim(),
+            anim,
             facing: self.pet.facing,
             window_width: css(f64::from(plan.width)),
             window_height: css(f64::from(plan.height)),
@@ -698,11 +705,22 @@ impl AppState {
                 width: css(l.width()),
                 height: css(l.bottom - l.top),
             }),
+            rate: self.frame_rate(anim),
         };
         if self.last_frame.as_ref() != Some(&frame) {
             self.last_frame = Some(frame.clone());
             out.frame = Some(frame);
         }
+    }
+
+    fn frame_rate(&self, anim: Anim) -> f64 {
+        let s = &self.data.settings;
+        if !matches!(anim, Anim::Walk | Anim::Carry) {
+            return 1.0;
+        }
+        let hot = s.system_monitor_enabled && (self.system.condition.hot || self.system.condition.ram_full);
+        let rate = f64::from(s.walk_speed) / WALK_SPEED_OF_ART * if hot { 0.6 } else { 1.0 };
+        rate.clamp(0.25, 4.0)
     }
 
     fn system_tick(&mut self, sample: Sample, dt: f32) {

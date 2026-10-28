@@ -16,50 +16,57 @@ const bubbleActions = document.getElementById("bubble-actions");
 let pack = null;
 let frame = null;
 let animName = null;
-let frameIndex = 0;
-let frameTimer = null;
+let animStart = 0;
+let shown = -1;
+let rate = 1;
 
-// Extra motion layered over the frames (see pet.css), so even a short frame
-// cycle breathes, bobs and wobbles.
+// The frames draw breathing, bobbing and swaying themselves; this only adds an
+// engine rumble on top (see pet.css).
 const MOTION = {
-  idle: "breathe",
-  sit: "breathe",
-  sad: "breathe",
-  bored: "breathe",
-  hungry: "breathe",
-  perch: "breathe",
-  read: "breathe",
-  sleep: "sleep",
-  walk: "bob",
-  carry: "bob",
-  climb: "wobble",
-  jump: "stretch",
-  float: "swing",
-  dance: "groove",
-  rideBike: "bob",
   rideMoto: "rumble",
   rideCar: "rumble",
-  rideSkate: "rock",
-  sweat: "shiver",
 };
+
+// Decode every frame up front so switching frames never shows a blank or a
+// half-loaded image. The Image objects are kept so the browser keeps them.
+const decoded = [];
+function preload(p) {
+  decoded.length = 0;
+  for (const anim of Object.values(p.animations)) {
+    for (const src of anim.frames) {
+      const img = new Image();
+      img.src = src;
+      img.decode().catch(() => {});
+      decoded.push(img);
+    }
+  }
+}
 
 function playAnimation(name) {
   if (!pack || name === animName) return;
   animName = name;
-  frameIndex = 0;
-  clearTimeout(frameTimer);
-  step();
+  animStart = performance.now();
+  shown = -1;
+  draw(animStart);
 }
 
-function step() {
-  const anim = pack.animations[animName];
+// Frames are chosen from the time since the animation started, not by counting
+// timer ticks, so a busy moment drops a frame instead of slowing the loop down.
+function draw(now) {
+  const anim = pack && pack.animations[animName];
   if (!anim) return;
-  spriteImg.src = anim.frames[frameIndex % anim.frames.length];
-  frameIndex += 1;
-  if (anim.frames.length > 1) {
-    frameTimer = setTimeout(step, 1000 / anim.fps);
+  const index = Math.floor(((now - animStart) / 1000) * anim.fps * rate) % anim.frames.length;
+  if (index !== shown) {
+    shown = index;
+    spriteImg.src = anim.frames[index];
   }
 }
+
+function loop(now) {
+  draw(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
 
 function applyFrame(f) {
   if (!f) return;
@@ -73,6 +80,13 @@ function applyFrame(f) {
   const mirror = pack && pack.facing !== "none" && f.facing !== pack.facing;
   spriteImg.classList.toggle("flip", mirror);
   sprite.dataset.motion = MOTION[f.anim] || "";
+  // Keep the cycle where it is when only the speed changes.
+  const newRate = f.rate || 1;
+  if (newRate !== rate) {
+    const now = performance.now();
+    animStart = now - ((now - animStart) * rate) / newRate;
+    rate = newRate;
+  }
   if (f.ladder) {
     Object.assign(ladder.style, {
       left: `${f.ladder.left}px`,
@@ -88,6 +102,7 @@ function applyFrame(f) {
 
 function setPack(p) {
   pack = p;
+  preload(p);
   animName = null;
   if (frame) applyFrame(frame);
 }

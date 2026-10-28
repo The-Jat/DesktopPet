@@ -24,7 +24,7 @@ pub struct Settings {
     pub pet_name: String,
     /// Sprite size multiplier.
     pub scale: f32,
-    /// Walking speed in logical pixels per second.
+    /// Walking speed in logical pixels per second at size 1.0 (it scales with the size).
     pub walk_speed: f32,
     pub emotions_enabled: bool,
     /// Let the pet say things on its own (notes, greetings).
