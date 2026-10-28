@@ -10,19 +10,27 @@
       <h1>DesktopPet</h1>
       <button class="tab active" data-tab="reminders" type="button">Reminders</button>
       <button class="tab" data-tab="notes" type="button">Notes</button>
+      <button class="tab" data-tab="focus" type="button">Focus &amp; breaks</button>
+      <button class="tab" data-tab="history" type="button">History</button>
       <button class="tab" data-tab="pet" type="button">Pet</button>
       <button class="tab" data-tab="behaviour" type="button">Behaviour</button>
-      <button class="tab" data-tab="about" type="button">About</button>
+      <button class="tab" data-tab="general" type="button">General</button>
+      <div class="nav-status" id="nav-status"></div>
     </nav>
 
     <main>
       <div id="error" class="error" hidden></div>
+      <div id="notice" class="notice" hidden></div>
 
       <!-- Reminders -->
       <section id="tab-reminders">
         <h2>Reminders</h2>
         <form id="reminder-form" class="card">
           <h3 id="reminder-form-title">New reminder</h3>
+          <label>Type it
+            <input id="quick" autocomplete="off" placeholder="e.g. call mom tomorrow at 5pm · water every 45 min · standup every mon and wed 9:30" />
+          </label>
+          <p id="quick-preview" class="hint small">Fills in the form below as you type.</p>
           <label>What should I remind you about?
             <input name="title" required maxlength="200" placeholder="Call mom" />
           </label>
@@ -48,37 +56,120 @@
                 <option value="everyMinutes">Every N minutes</option>
               </select>
             </label>
-            <fieldset id="weekly-days" class="days" hidden>
-              <label><input type="checkbox" value="0" />Mon</label>
-              <label><input type="checkbox" value="1" />Tue</label>
-              <label><input type="checkbox" value="2" />Wed</label>
-              <label><input type="checkbox" value="3" />Thu</label>
-              <label><input type="checkbox" value="4" />Fri</label>
-              <label><input type="checkbox" value="5" />Sat</label>
-              <label><input type="checkbox" value="6" />Sun</label>
-            </fieldset>
-            <label id="every-minutes" hidden>Minutes
-              <input name="minutes" type="number" min="1" max="1440" value="60" />
+            <label>Category
+              <select name="category" class="category-select"></select>
             </label>
           </div>
+          <fieldset id="weekly-days" class="days" hidden>
+            <label><input type="checkbox" value="0" />Mon</label>
+            <label><input type="checkbox" value="1" />Tue</label>
+            <label><input type="checkbox" value="2" />Wed</label>
+            <label><input type="checkbox" value="3" />Thu</label>
+            <label><input type="checkbox" value="4" />Fri</label>
+            <label><input type="checkbox" value="5" />Sat</label>
+            <label><input type="checkbox" value="6" />Sun</label>
+          </fieldset>
+          <label id="every-minutes" class="narrow" hidden>Minutes
+            <input name="minutes" type="number" min="1" max="1440" value="60" />
+          </label>
           <label class="check"><input name="enabled" type="checkbox" checked /> Enabled</label>
           <div class="actions">
             <button type="submit" class="primary" id="reminder-submit">Add reminder</button>
             <button type="button" id="reminder-cancel" hidden>Cancel edit</button>
           </div>
         </form>
+
+        <div class="card">
+          <h3>Healthy habits</h3>
+          <p class="hint">One click adds a repeating reminder under “Health”.</p>
+          <div class="presets wrap">
+            <button type="button" data-habit="water">💧 Drink water (hourly)</button>
+            <button type="button" data-habit="posture">🪑 Check posture (30 min)</button>
+            <button type="button" data-habit="stretch">🙆 Stretch (hourly)</button>
+            <button type="button" data-habit="eyes">👀 Rest your eyes (20 min)</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <input id="reminder-search" type="search" placeholder="Search reminders" />
+          <select id="reminder-filter" class="category-filter"></select>
+        </div>
         <ul id="reminder-list" class="list"></ul>
+
+        <details class="card" id="categories-card">
+          <summary><h3>Categories</h3></summary>
+          <ul id="category-list" class="list compact"></ul>
+          <form id="category-form" class="row">
+            <input name="name" required maxlength="40" placeholder="New category, e.g. Work" class="grow" />
+            <input name="color" type="color" value="#3366cc" />
+            <button type="submit">Add</button>
+          </form>
+        </details>
       </section>
 
       <!-- Notes -->
       <section id="tab-notes" hidden>
         <h2>Notes</h2>
-        <p class="hint">Things without a time. Your pet brings them up now and then while chatter is on.</p>
+        <p class="hint">Things without a time. Your pet brings them up now and then while chatter is on. Copy some text and press <kbd id="clip-key"></kbd> to save it here from anywhere.</p>
         <form id="note-form" class="card row">
-          <input name="text" required maxlength="500" placeholder="Buy bamboo" class="grow" />
+          <input name="text" required maxlength="2000" placeholder="Buy bamboo" class="grow" />
+          <select name="category" class="category-select"></select>
           <button type="submit" class="primary">Add note</button>
         </form>
+        <div class="toolbar">
+          <input id="note-search" type="search" placeholder="Search notes" />
+          <select id="note-filter" class="category-filter"></select>
+        </div>
         <ul id="note-list" class="list"></ul>
+      </section>
+
+      <!-- Focus & breaks -->
+      <section id="tab-focus" hidden>
+        <h2>Focus &amp; breaks</h2>
+        <div class="card focus-card">
+          <div class="timer" id="focus-timer">--:--</div>
+          <div class="focus-phase" id="focus-phase">Not running</div>
+          <div class="progress"><span id="focus-progress"></span></div>
+          <div class="actions center">
+            <button type="button" class="primary" id="focus-start">Start focus</button>
+            <button type="button" id="focus-stop" hidden>Stop</button>
+          </div>
+          <p class="hint small center" id="focus-today"></p>
+        </div>
+        <form class="card settings">
+          <h3>Focus timer</h3>
+          <div class="row">
+            <label>Focus (min) <input name="focusMinutes" type="number" min="1" max="240" /></label>
+            <label>Short break (min) <input name="shortBreakMinutes" type="number" min="1" max="120" /></label>
+            <label>Long break (min) <input name="longBreakMinutes" type="number" min="1" max="240" /></label>
+            <label>Long break every <input name="sessionsBeforeLongBreak" type="number" min="1" max="12" /></label>
+          </div>
+        </form>
+        <form class="card settings">
+          <h3>Screen breaks</h3>
+          <label class="check"><input name="breakRemindersEnabled" type="checkbox" /> Suggest a break after long screen time</label>
+          <div class="row">
+            <label>After (min) <input name="breakEveryMinutes" type="number" min="5" max="480" /></label>
+            <label>A break is being away for (min) <input name="breakAwayMinutes" type="number" min="1" max="120" /></label>
+          </div>
+          <p class="hint small" id="screen-time"></p>
+        </form>
+      </section>
+
+      <!-- History -->
+      <section id="tab-history" hidden>
+        <h2>History</h2>
+        <div class="tiles" id="stats"></div>
+        <div class="toolbar">
+          <select id="history-filter">
+            <option value="">Everything</option>
+            <option value="done">Done</option>
+            <option value="snoozed">Snoozed</option>
+            <option value="focus">Focus sessions</option>
+            <option value="break">Breaks</option>
+          </select>
+        </div>
+        <ul id="history-list" class="list compact"></ul>
       </section>
 
       <!-- Pet -->
@@ -94,15 +185,34 @@
             See <code>pets/README.md</code> for the format.
           </p>
         </div>
-        <form id="pet-form" class="card settings">
+        <form class="card settings">
           <label>Name <input name="petName" maxlength="32" /></label>
           <label>Size <input name="scale" type="range" min="0.5" max="3" step="0.1" /><output data-for="scale"></output></label>
           <label>Walking speed <input name="walkSpeed" type="range" min="0" max="200" step="5" /><output data-for="walkSpeed"></output></label>
+          <div class="row">
+            <label>Where it goes
+              <select name="roamMode">
+                <option value="bottomEdge">Along the taskbar</option>
+                <option value="wholeScreen">Anywhere on the screen</option>
+                <option value="activeWindow">On top of the window I'm using</option>
+              </select>
+            </label>
+            <label>Monitor
+              <select name="monitorIndex" id="monitor-select"></select>
+            </label>
+          </div>
+          <label class="check"><input name="followCursor" type="checkbox" /> Sometimes walks over to the mouse pointer</label>
+          <label class="check"><input name="shakeReaction" type="checkbox" /> Reacts when I shake the mouse</label>
+          <label class="check"><input name="careEnabled" type="checkbox" /> Needs care (gets hungry, likes to play)</label>
         </form>
         <div class="card">
           <h3>How is it feeling?</h3>
           <div id="mood" class="mood"></div>
-          <form id="say-form" class="row">
+          <div class="actions">
+            <button type="button" id="feed">🎋 Feed</button>
+            <button type="button" id="play">⚽ Play</button>
+          </div>
+          <form id="say-form" class="row spaced">
             <input name="text" maxlength="200" placeholder="Make your pet say something" class="grow" />
             <button type="submit">Say it</button>
           </form>
@@ -112,28 +222,76 @@
       <!-- Behaviour -->
       <section id="tab-behaviour" hidden>
         <h2>Behaviour</h2>
-        <form id="behaviour-form" class="card settings">
-          <label class="check"><input name="emotionsEnabled" type="checkbox" /> Emotions (happy, bored, sad, sleepy)</label>
+        <form class="card settings">
+          <h3>Talking</h3>
+          <label class="check"><input name="emotionsEnabled" type="checkbox" /> Emotions (happy, bored, sad, sleepy, hungry)</label>
           <label class="check"><input name="chatterEnabled" type="checkbox" /> Talks on its own (notes and little comments)</label>
-          <label>Talk about every (minutes) <input name="chatterIntervalMinutes" type="number" min="1" max="1440" /></label>
-          <label>Speech bubble stays for (seconds) <input name="bubbleSeconds" type="number" min="2" max="120" /></label>
-          <label>Snooze length (minutes) <input name="snoozeMinutes" type="number" min="1" max="1440" /></label>
-          <label>Nap after I'm away for (minutes) <input name="idleSleepMinutes" type="number" min="1" max="1440" /></label>
+          <label class="check"><input name="greetingsEnabled" type="checkbox" /> Says good morning, and welcome back after a break</label>
+          <div class="row">
+            <label>Talk about every (min) <input name="chatterIntervalMinutes" type="number" min="1" max="1440" /></label>
+            <label>Bubble stays for (s) <input name="bubbleSeconds" type="number" min="2" max="120" /></label>
+            <label>Snooze length (min) <input name="snoozeMinutes" type="number" min="1" max="1440" /></label>
+            <label>Nap when I'm away for (min) <input name="idleSleepMinutes" type="number" min="1" max="1440" /></label>
+          </div>
           <label class="check"><input name="quietHoursEnabled" type="checkbox" /> Quiet hours (no chatter; reminders still show)</label>
           <div class="row">
-            <label>From <input name="quietStartHour" type="number" min="0" max="23" /></label>
-            <label>To <input name="quietEndHour" type="number" min="0" max="23" /></label>
+            <label>From (hour) <input name="quietStartHour" type="number" min="0" max="23" /></label>
+            <label>To (hour) <input name="quietEndHour" type="number" min="0" max="23" /></label>
           </div>
+        </form>
+        <form class="card settings">
+          <h3>Daily summary</h3>
+          <label class="check"><input name="dailySummaryEnabled" type="checkbox" /> Tell me today's reminders once a day</label>
+          <label class="narrow">At <input id="summary-time" type="time" /></label>
+        </form>
+        <form class="card settings">
+          <h3>Computer health</h3>
+          <label class="check"><input name="systemMonitorEnabled" type="checkbox" /> React to CPU, memory, battery and disk</label>
+          <label class="check"><input name="systemSpeech" type="checkbox" /> Say something when a limit is crossed (otherwise just look hot or sleepy)</label>
+          <div class="row">
+            <label>CPU above (%) <input name="cpuAlertPercent" type="number" min="10" max="100" /></label>
+            <label>Memory above (%) <input name="ramAlertPercent" type="number" min="10" max="100" /></label>
+            <label>Battery below (%) <input name="batteryLowPercent" type="number" min="1" max="90" /></label>
+            <label>Free disk below (%) <input name="diskLowPercent" type="number" min="1" max="90" /></label>
+          </div>
+          <div id="system" class="mood"></div>
         </form>
       </section>
 
-      <!-- About -->
-      <section id="tab-about" hidden>
-        <h2>About</h2>
+      <!-- General -->
+      <section id="tab-general" hidden>
+        <h2>General</h2>
         <div class="card">
-          <p>Left-click the pet to pet it, drag it to move it, right-click it to open this dashboard.</p>
-          <p>Closing this window only hides it. Use the tray icon to show or hide the pet, or to quit.</p>
-          <p>Your data is saved in <code id="data-path"></code>.</p>
+          <h3>Startup</h3>
+          <label class="check"><input id="autostart" type="checkbox" /> Start DesktopPet when I sign in to Windows</label>
+          <p class="hint small">This registers the program you are running right now, so turn it on from the installed app, not a development build.</p>
+        </div>
+        <form class="card settings">
+          <h3>Keyboard shortcuts (work in any app)</h3>
+          <div class="row">
+            <label>Quick add <input name="hotkeyQuickAdd" placeholder="Ctrl+Alt+R" /></label>
+            <label>Save clipboard as note <input name="hotkeyClipboardNote" placeholder="Ctrl+Alt+N" /></label>
+          </div>
+          <p class="hint small">Format like <code>Ctrl+Alt+R</code> or <code>Ctrl+Shift+Space</code>. Leave empty to turn one off.</p>
+        </form>
+        <form class="card settings">
+          <h3>Notifications</h3>
+          <label class="check"><input name="notifyWhenHidden" type="checkbox" /> Also send a Windows notification when the pet is hidden or a full-screen app is running</label>
+        </form>
+        <div class="card">
+          <h3>Your data</h3>
+          <p>Saved in <code id="data-path"></code>.</p>
+          <div class="actions">
+            <button type="button" id="export">Export…</button>
+            <button type="button" id="import-merge">Import and add…</button>
+            <button type="button" id="import-replace" class="danger">Import and replace everything…</button>
+          </div>
+          <p class="hint small">Importing keeps a backup of your current data next to the data file.</p>
+        </div>
+        <div class="card">
+          <h3>Using the pet</h3>
+          <p>Left-click to pet it, drag to move it, right-click for a menu (feed, play, quick add, focus timer…).</p>
+          <p>Closing this window only hides it. The tray icon shows or hides the pet, and quits.</p>
         </div>
       </section>
     </main>

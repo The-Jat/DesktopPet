@@ -337,3 +337,199 @@ code {
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
+
+/* ---- additions: categories, focus, history, status ---- */
+
+.nav-status {
+  margin-top: auto;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.notice {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.small {
+  font-size: 12.5px;
+}
+
+.hint.ok {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.hint.warn {
+  color: var(--warn);
+}
+
+#quick-preview {
+  margin: -4px 0 12px;
+}
+
+.narrow {
+  max-width: 200px;
+}
+
+.center {
+  text-align: center;
+  justify-content: center;
+}
+
+.spaced {
+  margin-top: 12px;
+}
+
+.presets.wrap {
+  flex-wrap: wrap;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+
+.toolbar input[type="search"] {
+  flex: 1;
+  margin: 0;
+}
+
+.toolbar select {
+  width: 200px;
+  margin: 0;
+}
+
+.chip {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: color-mix(in srgb, var(--chip) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chip) 60%, transparent);
+}
+
+.list li {
+  border-left: 4px solid var(--accent-line, var(--line));
+}
+
+.list.compact li {
+  padding: 6px 10px;
+}
+
+.list li input[type="color"] {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+}
+
+.list li .grow {
+  flex: 1;
+  margin: 0;
+}
+
+.kind {
+  width: 92px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+details.card > summary {
+  cursor: pointer;
+  list-style: revert;
+}
+
+details.card > summary h3 {
+  display: inline;
+}
+
+details.card[open] > summary {
+  margin-bottom: 10px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.tile strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.tile span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.focus-card {
+  text-align: center;
+}
+
+.timer {
+  font-size: 56px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+.focus-phase {
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin: 0 auto 14px;
+  max-width: 420px;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.8s linear;
+}
+
+kbd {
+  font-family: Consolas, ui-monospace, monospace;
+  font-size: 12.5px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.mood {
+  grid-template-columns: 110px 1fr 70px;
+}
+
+.mood .strong {
+  font-weight: 600;
+}
