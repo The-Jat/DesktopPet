@@ -1,16 +1,21 @@
 # DesktopPet
 
 A desktop pet for Windows, written in Rust with [Tauri v2](https://v2.tauri.app).
-A panda (or any pet you add) walks along your taskbar, has moods, and pops up
+A panda (or a cat, or any pet you add) walks along your taskbar, has moods, and pops up
 a speech bubble to remind you of things.
 
-![states](docs/panda-states.png)
+![The panda and the ginger cat in a few of their moods](docs/pets.png)
 
-- **Reminders** with repeats (daily, weekdays, chosen days, every N minutes), Done / Snooze from the bubble
-- **Notes** the pet brings up now and then
-- **Emotions**: happy, bored, sad, sleepy; it naps when you're away
-- **Dashboard** to configure everything; **tray icon** to show/hide or quit
-- **Swappable pets**: drop a folder with a `manifest.json` in your pets folder
+- **Reminders** with repeats, Done / Snooze from the bubble, and typed
+  sentences like "call mom tomorrow at 5pm" or "water every 45 min"
+- **Quick add** from anywhere (`Ctrl+Alt+R`) and **clipboard to note** (`Ctrl+Alt+N`)
+- **Moods and care**: happy, bored, sad, sleepy, hungry; feed it and play with it
+- **Roams** the taskbar, the whole screen, or the top of the window you're using
+- **Computer health**: sweats when the CPU is busy, warns about memory, battery and disk
+- **Breaks and focus**: screen-break nudges, a pomodoro timer, a daily summary
+- **History** with streaks, **categories** and search, **export/import**
+- Windows notifications when the pet is hidden or you're in a full-screen app
+- **Swappable pets**: panda and ginger cat built in; add your own
 
 See [SPEC.md](SPEC.md) for the full behaviour.
 
@@ -19,8 +24,8 @@ See [SPEC.md](SPEC.md) for the full behaviour.
 | On the pet | Does |
 |---|---|
 | Left-click | Pet it |
-| Drag | Move it (it falls back to the taskbar) |
-| Right-click | Open the dashboard |
+| Drag | Move it |
+| Right-click | Menu: feed, play, quick add, clipboard note, focus timer, dashboard, hide |
 
 ## Build and run (Windows)
 
@@ -49,11 +54,12 @@ cargo tauri build                 # installer ends up in target\release\bundle\
 ## Layout
 
 ```
-crates/pet-core/   platform-independent logic + tests: reminders, mood, behaviour, storage, pet packs
-src-tauri/         the app: windows, tray, engine loop, Win32 calls (platform.rs), commands
-ui/                pet window and dashboard (plain HTML/CSS/JS)
+crates/pet-core/   platform-independent logic + tests: reminders, typed-time parser, mood,
+                   behaviour, system limits, breaks/focus, history, storage, pet packs
+src-tauri/         the app: windows, tray, menus, hotkeys, engine loop, Win32 calls (platform.rs)
+ui/                pet window, quick-add box and dashboard (plain HTML/CSS/JS)
 pets/              built-in pet packs (format: pets/README.md)
-tools/             gen-panda.mjs: regenerates the panda art
+tools/             gen-pets.mjs: regenerates the panda and cat art
 ```
 
 Your data lives in `%APPDATA%\com.thejat.desktoppet\` (`data.json`, `pets\`).

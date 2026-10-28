@@ -704,7 +704,8 @@ impl AppState {
             self.data.mood.tick(1.0, ctx);
             if s.care_enabled && self.feeling() == Feeling::Hungry {
                 let due = self.hungry_said_at.is_none_or(|t| self.clock - t > 30.0 * 60.0);
-                if due && !self.focus.is_focusing() {
+                // Let the startup greeting be read first.
+                if due && self.clock > 15.0 && !self.focus.is_focusing() {
                     self.hungry_said_at = Some(self.clock);
                     self.say("I'm hungry... right-click me to feed me?");
                 }
@@ -970,8 +971,15 @@ mod tests {
         let s = state();
         assert!(s.pack_errors.is_empty(), "{:?}", s.pack_errors);
         let ids: Vec<_> = s.packs.iter().map(|p| p.manifest.id.as_str()).collect();
-        assert!(ids.contains(&"panda") && ids.contains(&"blue-cat"), "{ids:?}");
+        assert!(ids.contains(&"panda") && ids.contains(&"cat") && ids.contains(&"blue-cat"), "{ids:?}");
         assert_eq!(s.loaded_pack().unwrap().id, "panda");
+        // The generated packs draw every animation themselves, no fallbacks.
+        for id in ["panda", "cat"] {
+            let pack = s.packs.iter().find(|p| p.manifest.id == id).unwrap();
+            for anim in Anim::ALL {
+                assert!(pack.manifest.animations.contains_key(anim.key()), "{id} lacks {}", anim.key());
+            }
+        }
     }
 
     #[test]

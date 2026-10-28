@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <ellipse cx="64" cy="123" rx="28" ry="4" fill="#000" opacity=".15"/>
-  <ellipse cx="48" cy="108" rx="10" ry="8" fill="#2b2b2b" transform="rotate(0 48 108)"/>
-  <ellipse cx="80" cy="108" rx="10" ry="8" fill="#2b2b2b" transform="rotate(0 80 108)"/>
+  <ellipse cx="48" cy="108" rx="10" ry="8" fill="#2b2b2b"  transform="rotate(0 48 108)"/>
+  <ellipse cx="80" cy="108" rx="10" ry="8" fill="#2b2b2b"  transform="rotate(0 80 108)"/>
   <ellipse cx="64" cy="84" rx="29" ry="25" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
   <ellipse cx="64" cy="88" rx="15" ry="13" fill="#f3f3f3"/>
-  <ellipse cx="32" cy="66" rx="8" ry="13" fill="#2b2b2b" transform="rotate(-35 32 66)"/>
-  <ellipse cx="96" cy="66" rx="8" ry="13" fill="#2b2b2b" transform="rotate(35 96 66)"/>
   <circle cx="36" cy="18" r="12" fill="#2b2b2b"/>
   <circle cx="92" cy="18" r="12" fill="#2b2b2b"/>
   <circle cx="64" cy="44" r="34" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.5"/>
@@ -15,7 +13,9 @@
   <path d="M73 47 q4 -6 8 0" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
   <ellipse cx="64" cy="57" rx="4.5" ry="3.2" fill="#2b2b2b"/>
   <path d="M57 62 q7 11 14 0 z" fill="#e8576b" stroke="#2b2b2b" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="40" cy="58" r="5" fill="#ffb3c1" opacity=".75"/>
-  <circle cx="88" cy="58" r="5" fill="#ffb3c1" opacity=".75"/>
+  <ellipse cx="40" cy="58" rx="5" ry="5" fill="#ffb3c1" opacity=".75"/>
+  <ellipse cx="88" cy="58" rx="5" ry="5" fill="#ffb3c1" opacity=".75"/>
+  <ellipse cx="32" cy="66" rx="8" ry="13" fill="#2b2b2b"  transform="rotate(-35 32 66)"/>
+  <ellipse cx="96" cy="66" rx="8" ry="13" fill="#2b2b2b"  transform="rotate(35 96 66)"/>
   <path d="M108 22 c-4 -6 -12 -2 -8 4 l8 8 l8 -8 c4 -6 -4 -10 -8 -4z" fill="#ff5c7a"/>
 </svg>
